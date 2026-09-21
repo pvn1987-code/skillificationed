@@ -147,15 +147,28 @@ def _synthesise_one(line: str, wav: Path, log) -> tuple:
     return wav, videocomposite.probe_duration(wav), heard
 
 
-def _concat(parts: list, out_path: Path, gap: float) -> Path:
-    """Join the beat wavs with `gap` seconds of silence between them."""
+def _concat(parts: list, out_path: Path, gaps) -> Path:
+    """Join the beat wavs, with per-beat silence between them.
+
+    `gaps` is one figure per part (the last is ignored), NOT a single value.
+    It used to be a single uniform gap, while the caption cursor advanced by a
+    per-beat gap that had been widened to honour a spec's `duration_sec`
+    minimum -- so the padding existed in the caption timeline and nowhere in
+    the audio. The flat-tire spec asked for 38s of minimums against 28s of
+    speech, and the captions ended up 8 SECONDS behind the voice by the last
+    beat, drifting further with every beat. Nothing caught it because each
+    beat was individually correct; only the accumulated offset was wrong.
+    """
+    if isinstance(gaps, (int, float)):
+        gaps = [float(gaps)] * len(parts)
     command = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error"]
     for wav, _duration in parts:
         command += ["-i", str(wav)]
     chains, labels = [], []
     for index, (_wav, _duration) in enumerate(parts):
         last = index == len(parts) - 1
-        pad = "" if last else f",apad=pad_dur={gap}"
+        this_gap = gaps[index] if index < len(gaps) else 0.0
+        pad = "" if last else f",apad=pad_dur={max(0.0, this_gap):.3f}"
         # A uniform rate first: the beats all come from one model, but concat
         # refuses to join streams that disagree about format.
         chains.append(f"[{index}:a]aresample=24000,aformat="
@@ -180,7 +193,7 @@ def narrate(beats: list, day_dir: Path, log, tag: str = "reel") -> dict:
     parts_dir = day_dir / f"{tag}_beats"
     parts_dir.mkdir(parents=True, exist_ok=True)
 
-    parts, spans, words, takes = [], [], [], []
+    parts, spans, words, takes, gaps = [], [], [], [], []
     cursor = 0.0
     for index, beat in enumerate(beats):
         line = beat["line"].strip()
@@ -209,6 +222,7 @@ def narrate(beats: list, day_dir: Path, log, tag: str = "reel") -> dict:
                 gap = floor - duration
             elif duration > floor + 0.25:
                 log(f"      (asked {floor:.1f}s, the line takes {duration:.1f}s)")
+        gaps.append(gap)
         spans.append((round(cursor, 3), round(cursor + duration + gap, 3)))
         label = f"#{beat['rank']}" if beat.get("rank") else beat.get("role", "")
         log(f"      {label:6} {duration:5.2f}s  {len(timed):>3} words")
@@ -220,7 +234,7 @@ def narrate(beats: list, day_dir: Path, log, tag: str = "reel") -> dict:
     if not parts:
         raise NarrationError("no beats had anything to say")
 
-    audio = _concat(parts, day_dir / f"{tag}.wav", _GAP)
+    audio = _concat(parts, day_dir / f"{tag}.wav", gaps)
     total = videocomposite.probe_duration(audio)
     # The measured total can differ from the running cursor by a frame or two
     # of encoder padding; trust the file and give the remainder to the last

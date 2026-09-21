@@ -339,8 +339,8 @@ def _scrim(canvas: Image.Image) -> None:
     matters more than keeping every frame pristine.
     """
     width, height = canvas.size
-    centre = (height - _SAFE_BOTTOM) // 2
-    reach = 520
+    centre = int(height * config.CAPTION_BAND)
+    reach = 380
     # The lower floor has to RAMP in. Stepping it produced a hard horizontal
     # seam straight across the frame, which looked like a rendering fault.
     floor_from = height - _SAFE_BOTTOM - 520
@@ -536,7 +536,12 @@ def render_caption_track(pages: list, duration: float, out_dir: Path,
 
     fps = config.REEL_FPS
     total_frames = max(int(round((duration + _TAIL) * fps)), 1)
-    centre_y = (config.REEL_H - _SAFE_BOTTOM) // 2
+    # Captions sit in a LOWER BAND, not the middle of the frame. At
+    # (REEL_H - SAFE_BOTTOM)//2 they landed at 780px of 1920 -- 41% down,
+    # directly over the subject of every shot, with the scrim darkening the
+    # same spot. The footage is the thing being explained; covering its centre
+    # with type is the one place text must not go.
+    centre_y = int(config.REEL_H * config.CAPTION_BAND)
     card_start = duration + _TAIL - config.REEL_END_CARD_SECONDS
     handle_font = _font(30)
 

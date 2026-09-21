@@ -121,6 +121,12 @@ CAPTION_WORDS = int(os.getenv("CAPTION_WORDS", "3"))
 # news reel ran 104, which is louder than it needs to be and leaves no room for
 # the rank card above it.
 CAPTION_SIZE = int(os.getenv("CAPTION_SIZE", "82"))
+
+# Where the caption band sits, as a fraction of frame height. 0.72 puts it in
+# the lower third, clear of the subject and above the platform's own furniture.
+# It used to be computed as (REEL_H - SAFE_BOTTOM)/2, which is 0.41 -- the
+# middle of the frame, straight over whatever the shot was showing.
+CAPTION_BAND = float(os.getenv("CAPTION_BAND", "0.72"))
 HIGHLIGHT = os.getenv("HIGHLIGHT", "#FFC43D").strip()
 CAPTION_IDLE = os.getenv("CAPTION_IDLE", "#FFFFFF").strip()
 HIGHLIGHT_SCALE = float(os.getenv("HIGHLIGHT_SCALE", "1.08"))
