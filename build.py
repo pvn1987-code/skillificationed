@@ -341,4 +341,15 @@ def build(plan: dict, day_dir: Path, log, tag: str = "reel") -> dict:
         parts.append("Footage: " + "; ".join(credits[:6]))
     if parts:
         (day_dir / f"{tag}.caption.txt").write_text("\n\n".join(parts))
+
+    # The tile is the click decision, so it is part of a build rather than a
+    # step someone has to remember. Never fatal: the reel is finished and
+    # written by this point, and a missing thumbnail is a thing to regenerate,
+    # not a reason to lose the render.
+    try:
+        import thumbnail
+        thumbnail.build(day_dir.name)
+    except Exception as exc:                      # noqa: BLE001 - see above
+        log(f"  ! thumbnail failed ({type(exc).__name__}: {exc}) — "
+             f"run ./thumbnail.py {day_dir.name} to retry")
     return manifest

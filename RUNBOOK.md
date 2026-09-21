@@ -394,3 +394,49 @@ Nothing is scheduled, so there is nothing to stop.
 `REEL_VENV` in `.env` points at the AI_News `.venv-reel` so the ~3GB torch/mlx
 stack is not installed twice. **Deleting or rebuilding that venv breaks
 ReelForge's voice step.**
+
+## Thumbnails (`thumbnail.py`) *(2026-09-20)*
+
+The tile is the whole click decision on a channel grid and in search, and there
+was none -- YouTube grabbed whatever frame it liked, which for a countdown is
+usually a rank card mid-animation or a caption caught between pages.
+
+```bash
+./thumbnail.py <slug>              # thumbnail.jpg (1080x1920) + thumbnail_16x9.jpg (1280x720)
+./thumbnail.py <slug> --rank 4     # force a particular item's footage
+```
+
+`build.py` calls it at the end of every build, and a failure there is logged
+rather than raised: the reel is already rendered and written by that point, so
+a missing thumbnail is something to regenerate, never a reason to lose a render.
+
+**The background is the reel's OWN sourced footage.** This project exists to
+prove the footage under an item really is that item, so pulling a thumbnail
+from a fresh stock search would advertise the one thing the pipeline refuses to
+do. Frames come from the cached clip, not the finished mp4 -- the render
+already has rank cards and karaoke captions burned in, and a thumbnail built on
+those is text over text.
+
+**It does not spoil number one.** Ranks 2-5 first, then any other real item,
+never rank 1. Nothing on the tile names the item, so the picture alone gives no
+rank away.
+
+**Tier ladder, not EXACT-only.** EXACT first, then ILLUSTRATIVE, then the
+hook's generic mood footage as a last resort. An EXACT-only rule looked right
+until "Top 10 richest counties" was tried: not one of its ten items has exact
+footage, so all ten were skipped and the generic cloud shot went on the tile.
+A whole class of topic would have shipped that way.
+
+Caveat worth knowing: on an ILLUSTRATIVE topic the tile shows footage that is
+not verifiably the item. "Richest US counties" currently picks a frame that
+reads as an English town. That is the same tier the reel itself uses for those
+items, so the thumbnail is no less accurate than the video -- but it is the
+most visible surface, so it is worth an eye before uploading.
+
+**The "TOP 10" badge is derived when the title lacks it.** "Richest US
+Counties" is a real plan title with no count in it, and the badge is the genre
+signal that makes someone read the rest of the tile, so the item count fills in.
+
+Wide type is sized larger relative to its canvas than vertical type: a search
+result is a couple of hundred pixels across, and type scaled to look right at
+full size vanishes there.
