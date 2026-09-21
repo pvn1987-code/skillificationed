@@ -148,7 +148,15 @@ def cmd_build(args) -> int:
     weak = [i for i in manifest["authenticity"]["by_item"]
             if i["tier"] != config.TIER_EXACT]
     _log("")
-    if weak:
+    # A tutorial has no "real subject" to verify: its steps are actions, and
+    # the author-supplied query IS the instruction. Reporting all seven steps
+    # of a flat-tire guide as "NOT on footage of the real subject" is not a
+    # warning, it is noise that trains you to ignore the one report that
+    # matters on a countdown.
+    if weak and plan.get("format") == "howto":
+        _log(f"  {len(weak)} step(s) on author-supplied footage, as expected "
+             f"for a tutorial.")
+    elif weak:
         # Autonomous by design, but never quiet about it: a numbered item on
         # anything but its own footage is the one outcome worth knowing about.
         _log("  items NOT on footage of the real subject:")

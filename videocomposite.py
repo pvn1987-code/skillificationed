@@ -579,7 +579,7 @@ def render_caption_track(pages: list, duration: float, out_dir: Path,
         canvas = Image.new("RGBA", (config.REEL_W, config.REEL_H), (0, 0, 0, 0))
         draw = ImageDraw.Draw(canvas)
         _scrim(canvas)
-        if config.REEL_SHOW_HANDLE:
+        if config.REEL_SHOW_HANDLE and config.INSTAGRAM_HANDLE:
             handle_y = config.REEL_H - _SAFE_BOTTOM - 40
             _plate(draw, config.REEL_W // 2, handle_y, config.INSTAGRAM_HANDLE,
                    handle_font)

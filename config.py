@@ -36,7 +36,13 @@ _venv = os.getenv("REEL_VENV", ".venv-reel")
 REEL_VENV = Path(_venv) if os.path.isabs(_venv) else ROOT / _venv
 
 # --- Brand -------------------------------------------------------------------
-BRAND_HANDLE = os.getenv("BRAND_HANDLE", "@pa1kura").strip()
+# NO DEFAULT, deliberately. This is burned into every frame of every reel, and
+# it defaulted to "@pa1kura" -- the AI-news channel this project was forked
+# from -- so the first flat-tire build rendered 29 seconds of video watermarked
+# with the wrong account. A config default is not a safe place to keep another
+# channel's identity: an unset variable should produce no handle, never
+# somebody else's. Set BRAND_HANDLE in .env.
+BRAND_HANDLE = os.getenv("BRAND_HANDLE", "").strip()
 DISPLAY_FONT = os.getenv("DISPLAY_FONT", "Anton-Regular.ttf")
 # Disclosure. Stated in the caption; never burned into the frame.
 #

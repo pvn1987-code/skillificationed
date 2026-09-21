@@ -127,12 +127,19 @@ def _scrim(canvas: Image.Image, top_frac: float = 0.42) -> Image.Image:
     return Image.composite(dark, canvas, mask)
 
 
-def _split_title(title: str, item_count: int = 0) -> tuple:
+def _split_title(title: str, item_count: int = 0, howto: bool = False) -> tuple:
     """"Top Ten Cities To Visit Before You Die" -> ("TOP 10", "CITIES TO ...").
 
     The count is rendered separately and huge, because "TOP 10" is the genre
     signal that makes someone read the rest of the tile at all.
     """
+    # A tutorial is not a ranking. The first flat-tire build put "TOP 7" over
+    # "HOW TO CHANGE A FLAT TIRE", which promises a countdown the video does
+    # not contain. Steps get a step count instead, and only when there are
+    # enough of them for the number to be a selling point.
+    if howto:
+        return (f"{item_count} STEPS" if item_count >= 3 else ""), \
+               (title or "").upper()
     words = (title or "").strip().split()
     lowered = [w.lower().strip(".,") for w in words]
     counts = {"ten": "10", "five": "5", "seven": "7", "twelve": "12",
@@ -246,7 +253,8 @@ def build(slug: str, rank: int | None = None) -> int:
         return 1
 
     count, subject = _split_title(plan.get("title") or reel.get("title") or "",
-                                  len(plan.get("items") or []))
+                                  len(plan.get("items") or []),
+                                  howto=plan.get("format") == "howto")
     _log(f"  title: {count!r} + {subject!r}")
     vertical = _compose(frame, count, subject, (config.REEL_W, config.REEL_H),
                         day_dir / "thumbnail.jpg")
