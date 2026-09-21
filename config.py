@@ -83,6 +83,13 @@ REEL_MAX_SHOT = float(os.getenv("REEL_MAX_SHOT", "3.0"))
 # item is named, then drops back to a small persistent rank chip -- the chip is
 # what tells a viewer who joined mid-scroll that the list is not finished yet.
 RANK_CARD_SECONDS = float(os.getenv("RANK_CARD_SECONDS", "1.5"))
+
+# The word above the numeral on the reveal card. A countdown counts DOWN to a
+# reveal, so "NO. 3" is right; a tutorial counts UP through a sequence, where
+# "NO. 3" reads as a ranking that does not exist and actively misleads -- step
+# three is not the third-best step. Selected by the plan's `format`.
+RANK_LABEL = os.getenv("RANK_LABEL", "NO.")
+STEP_LABEL = os.getenv("STEP_LABEL", "STEP")
 RANK_CHIP = os.getenv("RANK_CHIP", "true").strip().lower() == "true"
 
 # A fresh open loop every 10-15s is what stops the middle of a list sagging.

@@ -1,0 +1,40 @@
+{
+  "format": "howto",
+  "topic": "How to Change a Flat Tire",
+  "sources_note": "General vehicle maintenance guidance. Always follow your vehicle's own handbook.",
+  "intro": {
+    "on_screen_text": "How To Change A Flat Tire",
+    "voiceover": "How to change a flat tire in under ten minutes.",
+    "pexels_query": "car flat tire roadside",
+    "duration_sec": 3.5
+  },
+  "items": [
+    {"rank": 1, "place_name": "Pull over safely", "on_screen_text": "Pull over safely",
+     "voiceover": "Pull onto flat, solid ground. Hazard lights on, handbrake firmly set.",
+     "pexels_query": "broken down car roadside", "duration_sec": 4.5},
+    {"rank": 2, "place_name": "Loosen before lifting", "on_screen_text": "Loosen before lifting",
+     "voiceover": "Loosen each wheel nut half a turn now, before you jack.",
+     "pexels_query": "changing tire roadside wrench", "duration_sec": 4.5},
+    {"rank": 3, "place_name": "Jack at the right point", "on_screen_text": "Jack at the right point",
+     "voiceover": "Jack only at the reinforced point marked in your handbook.",
+     "pexels_query": "car jack lifting vehicle", "duration_sec": 4.0},
+    {"rank": 4, "place_name": "Lift and remove", "on_screen_text": "Lift and remove",
+     "voiceover": "Lift until the flat clears the ground, then remove the nuts.",
+     "pexels_query": "removing car wheel tire", "duration_sec": 4.5},
+    {"rank": 5, "place_name": "Fit the spare", "on_screen_text": "Fit the spare",
+     "voiceover": "Fit the spare. Tighten the nuts by hand in a star pattern.",
+     "pexels_query": "mounting spare tire", "duration_sec": 4.5},
+    {"rank": 6, "place_name": "Torque it down", "on_screen_text": "Torque it down",
+     "voiceover": "Lower the car, then torque them fully in the same star pattern.",
+     "pexels_query": "torque wrench car wheel", "duration_sec": 4.5},
+    {"rank": 7, "place_name": "Never go underneath", "on_screen_text": "Never go underneath",
+     "voiceover": "Never put any part of yourself under a car held by a jack.",
+     "pexels_query": "car on jack stands", "duration_sec": 4.5}
+  ],
+  "outro": {
+    "on_screen_text": "Most spares are space savers. Keep it under fifty miles an hour. 🚗 Tag a friend who needs to learn this. 👇 Consider yourself... Skillificationed.",
+    "voiceover": "Most spares are space savers. Keep it under fifty miles an hour.",
+    "pexels_query": "car driving highway",
+    "duration_sec": 3.5
+  }
+}

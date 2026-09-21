@@ -291,8 +291,12 @@ def build(plan: dict, day_dir: Path, log, tag: str = "reel") -> dict:
     pages = videocomposite.plan_captions(timed, duration, fallback_text=script)
     videocomposite.write_srt(pages, day_dir / f"{tag}.srt")
     frames_dir = day_dir / f"{tag}_frames"
+    # "STEP 3" for a tutorial, "NO. 3" for a countdown.
+    rank_label = (config.STEP_LABEL if plan.get("format") == "howto"
+                  else config.RANK_LABEL)
     _, frame_count = videocomposite.render_caption_track(
-        pages, duration, frames_dir, items=overlay_items, credits=credits)
+        pages, duration, frames_dir, items=overlay_items, credits=credits,
+        rank_label=rank_label)
     log(f"    {len(pages)} caption pages, {frame_count} frames, "
         f"{len(credits)} credit line(s)")
 

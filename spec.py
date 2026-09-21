@@ -88,6 +88,15 @@ def load_dict(raw: dict, source: str = "spec") -> dict:
     if not entries:
         raise SpecError("the spec has no items")
 
+    # "countdown" (the default) or "howto". A countdown counts DOWN to a
+    # reveal; a tutorial counts UP through a sequence, and the three things
+    # that follow from that are all wrong if the format is assumed:
+    # the order, the card label, and whether the number is spoken as a rank.
+    fmt = (raw.get("format") or "countdown").strip().lower()
+    if fmt not in ("countdown", "howto"):
+        raise SpecError(f"format must be 'countdown' or 'howto', not {fmt!r}")
+    howto = fmt == "howto"
+
     items = []
     for entry in entries:
         name = (entry.get("place_name") or entry.get("name") or "").strip()
@@ -107,7 +116,10 @@ def load_dict(raw: dict, source: str = "spec") -> dict:
             "rank": rank,
             "name": name,
             "kind": entry.get("kind") or _kind_of(name),
-            "line": _ensure_rank_spoken(line, rank),
+            # A tutorial's line is left exactly as written. Forcing "Number
+            # three." in front of a step is worse than redundant -- it frames
+            # the step as a ranking, and the card no longer says "NO." either.
+            "line": line if howto else _ensure_rank_spoken(line, rank),
             "caption": caption,
             "query": (entry.get("pexels_query") or "").strip(),
             "min_seconds": float(entry.get("duration_sec") or 0),
@@ -116,7 +128,9 @@ def load_dict(raw: dict, source: str = "spec") -> dict:
             # how specs behaved before the planner learned to emit this.
             "depictable": bool(entry.get("depictable", False)),
         })
-    items.sort(key=lambda i: -i["rank"])
+    # Steps ascend, ranks descend. Getting this backwards would play a
+    # tutorial from its last step to its first.
+    items.sort(key=lambda i: i["rank"] if howto else -i["rank"])
 
     intro = raw.get("intro") or {}
     outro = raw.get("outro") or {}
@@ -131,6 +145,7 @@ def load_dict(raw: dict, source: str = "spec") -> dict:
         "items": items,
         "cta": (outro.get("voiceover") or "").strip(),
         "caption": (outro.get("on_screen_text") or "").strip(),
+        "format": fmt,
         "sources_note": raw.get("sources_note") or source,
         # Speak the lines exactly as written.
         "verbatim": True,

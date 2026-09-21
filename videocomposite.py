@@ -404,7 +404,8 @@ def _caption_for(items: list, rank: int) -> str:
     return ""
 
 
-def _draw_rank_card(draw, rank: int, caption: str, progress: float) -> None:
+def _draw_rank_card(draw, rank: int, caption: str, progress: float,
+                    label: str = "") -> None:
     """The countdown reveal: a large numeral over the item's name.
 
     This is the beat of the format. It animates in on the cut, holds while the
@@ -429,7 +430,7 @@ def _draw_rank_card(draw, rank: int, caption: str, progress: float) -> None:
     # "No." sits above the numeral so the numeral itself can be enormous
     # without the word competing with it for size.
     small = _font(46)
-    draw.text((centre_x, numeral_y - 150), "NO.", font=small,
+    draw.text((centre_x, numeral_y - 150), label or config.RANK_LABEL, font=small,
               fill=accent + (alpha,), anchor="mm",
               stroke_width=5, stroke_fill=(10, 10, 12, alpha))
 
@@ -514,7 +515,8 @@ def _draw_credits(draw, lines: list, alpha: int) -> None:
 
 def render_caption_track(pages: list, duration: float, out_dir: Path,
                          items: list | None = None,
-                         credits: list | None = None) -> tuple:
+                         credits: list | None = None,
+                         rank_label: str = "") -> tuple:
     """A transparent PNG per frame, for one image2 input and one overlay.
 
     Frames whose visible state is identical are hard-linked rather than
@@ -586,7 +588,8 @@ def render_caption_track(pages: list, duration: float, out_dir: Path,
         if config.RANK_CHIP and chip_rank > 0 and items:
             _draw_rank_chip(draw, chip_rank, len(items))
         if rank > 0:
-            _draw_rank_card(draw, rank, _caption_for(items, rank), reveal / 12)
+            _draw_rank_card(draw, rank, _caption_for(items, rank), reveal / 12,
+                            label=rank_label)
         if page_index >= 0:
             _draw_page(draw, [w["word"] for w in pages[page_index][2]], active, centre_y)
         if card >= 0:
