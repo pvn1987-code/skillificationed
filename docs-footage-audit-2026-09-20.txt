@@ -1,0 +1,32 @@
+ 1 Yachts               Azzam                        EXACT        commons   1 photo(s), best Caroline Azzam.jpg
+ 1 Yachts               Eclipse (yacht)              GENERIC                nothing verified (best stock match 0.50)
+ 3 Deepest places       Mariana Trench               EXACT        commons   4 photo(s), best Bathyscaphe Trieste with US
+ 3 Deepest places       Challenger Deep              EXACT        commons   4 photo(s), best Challenger Deep Dive 071222
+ 5 Futuristic cities    Tokyo                        EXACT        stock     36 verified clip(s)
+ 5 Futuristic cities    Dubai                        GENERIC                wikidata unreachable after 4 tries: wikidata
+ 7 Vaults               Fort Knox                    EXACT        commons   1 photo(s), best An UH-1 Iroquois helicopter
+ 7 Vaults               Svalbard Global Seed Vault   EXACT        commons   4 photo(s), best Svalbard Global Seed Vault 
+ 9 Deadliest animals    Mosquito                     GENERIC                wikidata unreachable after 4 tries: wikidata
+ 9 Deadliest animals    Box jellyfish                EXACT        commons   1 photo(s), best Avispa marina cropped.png
+11 Expensive cars       Bugatti Chiron               EXACT        commons   4 photo(s), best Bugatti Chiron 2017.jpg
+11 Expensive cars       Koenigsegg Jesko             EXACT        commons   4 photo(s), best Koenigsegg Jesko, GIMS 2019
+13 Heaviest moved       Bagger 288                   EXACT        commons   4 photo(s), best Garzweiler Tagebau-1230.jpg
+13 Heaviest moved       Gullfaks C                   GENERIC                nothing verified (best stock match 0.00)
+15 Isolated places      Tristan da Cunha             EXACT        commons   4 photo(s), best TristanDaCunha.jpg
+15 Isolated places      Pitcairn Islands             GENERIC                wikidata unreachable after 4 tries: wikidata
+17 Rollercoasters       Kingda Ka                    EXACT        commons   4 photo(s), best Kingda Ka.jpg
+17 Rollercoasters       Steel Dragon 2000            EXACT        commons   4 photo(s), best Steel dragon 2000.jpg
+19 Happiest countries   Finland                      GENERIC                wikidata unreachable after 4 tries: wikidata
+19 Happiest countries   Denmark                      EXACT        stock     4 verified clip(s)
+21 Coldest places       Oymyakon                     EXACT        commons   4 photo(s), best Oymyakon - 190228 DSC 5642.
+21 Coldest places       Vostok Station               EXACT        commons   1 photo(s), best Vostok Station 2024.png
+23 Bridges              Golden Gate Bridge           EXACT        stock     60 verified clip(s)
+23 Bridges              Millau Viaduct               EXACT        commons   4 photo(s), best 00 0237 Millau - Départemen
+25 Gemstones            Painite                      GENERIC                wikidata unreachable after 4 tries: wikidata
+25 Gemstones            Tanzanite                    EXACT        commons   4 photo(s), best Zoïsite (Tanzanite).jpg
+27 Fast food            McDonald's                   EXACT        stock     6 verified clip(s)
+27 Fast food            Starbucks                    EXACT        stock     7 verified clip(s)
+29 Oldest trees         Methuselah                   GENERIC                wikidata unreachable after 4 tries: wikidata
+29 Oldest trees         General Sherman              EXACT        stock     1 verified clip(s)
+
+[exited with code 0]

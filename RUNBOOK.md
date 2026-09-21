@@ -457,3 +457,51 @@ any publish code, not after.
 The two pipelines also share the TTS venv (`.venv-reel`) and nothing else.
 Changes to the renderer, captions or voice clone do not propagate between them;
 they were copied at fork time and have diverged since.
+
+## Footage audit of the 30-day calendar *(2026-09-20)*
+
+30 representative items, two from each countdown topic, run through
+`visuals.audit_item`. Answering "will this actually be real footage?" before
+committing a month of production to it.
+
+**Everything resolves. Almost none of it is video.**
+
+| outcome | items | what the viewer sees |
+|---|---|---|
+| EXACT via stock | 7 | real **video** of the subject |
+| PROXY via stock | 1 | real video of a stand-in (Finland → Helsinki) |
+| EXACT via commons | 20 | real **photographs**, Ken Burns pan |
+| GENERIC | 2 | unrelated stock |
+
+So 28 of 30 get authentic material, but only **8 of 30 move**. Two thirds are
+stills. Famous places and brands have video (Golden Gate 60 clips, Dubai 53,
+Tokyo 36); named objects -- a yacht, a gemstone, a dragline excavator -- exist
+only as Commons photographs. Expect Yachts, Gemstones and Heaviest Objects to
+be near-slideshows, and plan the Ken Burns settings accordingly.
+
+Genuine misses, both named objects: "Eclipse (yacht)" (best stock match 0.50)
+and "Gullfaks C" (0.00).
+
+### Two false EXACTs, which is the real problem
+
+* **Azzam** → `Caroline Azzam.jpg`. A person, not the superyacht.
+* **Methuselah** → `Methuselah Stained glass.jpg`. The biblical figure in a
+  church window, not the 4,800-year-old bristlecone pine.
+* **Fort Knox** → `An UH-1 Iroquois helicopter...`. Defensible (it is the base)
+  but a poor visual for "most guarded vault".
+
+All three reported **EXACT**, the tier that means verified. A single-word or
+shared proper noun resolves to whatever Wikidata ranks first, and nothing
+checks that the entity's TYPE matches the kind asked for. For a pipeline whose
+entire claim is that the footage is really the subject, a confident wrong
+answer is worse than no answer: `audit_item("Azzam", "thing")` should refuse a
+human, and `("Methuselah", "thing")` should refuse a stained-glass window.
+
+### Wikidata unreachability silently downgrades to GENERIC
+
+Six of the thirty first came back "wikidata unreachable after 4 tries". Re-run
+one at a time with a pause, every one resolved -- the audit was rate-limiting
+itself. Worth knowing for two reasons: audit in small batches, and more
+importantly a Wikidata outage during a real build does not fail the build, it
+quietly drops those items to GENERIC footage. The authenticity report records
+it, so check that before publishing rather than assuming a clean run.
