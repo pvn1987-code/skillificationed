@@ -259,6 +259,16 @@ REEL_HIGHLIGHT = HIGHLIGHT
 REEL_CAPTION_IDLE = CAPTION_IDLE
 REEL_HIGHLIGHT_SCALE = HIGHLIGHT_SCALE
 REEL_SHOW_HANDLE = os.getenv("SHOW_HANDLE", "true").strip().lower() == "true"
+
+# A WATERMARK, not a label. It used to be near-opaque white type (alpha 235)
+# on a dark rounded plate, parked in the middle of the lower third -- which
+# reads as part of the content rather than as ownership, and competes with the
+# caption it sits under. Low alpha, no plate, and out of the caption's way.
+# 0-255; below about 60 it disappears on bright footage, above about 160 it
+# starts reading as content again.
+REEL_HANDLE_ALPHA = int(os.getenv("REEL_HANDLE_ALPHA", "105"))
+# Backing plate behind the handle. Off: a plate is what made it look stuck on.
+REEL_HANDLE_PLATE = os.getenv("REEL_HANDLE_PLATE", "false").strip().lower() == "true"
 INSTAGRAM_HANDLE = BRAND_HANDLE
 REEL_END_CARD_SECONDS = CTA_SECONDS
 REEL_FOLLOW_TEXT = CTA_CARD_TEXT

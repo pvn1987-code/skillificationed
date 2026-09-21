@@ -580,11 +580,18 @@ def render_caption_track(pages: list, duration: float, out_dir: Path,
         draw = ImageDraw.Draw(canvas)
         _scrim(canvas)
         if config.REEL_SHOW_HANDLE and config.INSTAGRAM_HANDLE:
-            handle_y = config.REEL_H - _SAFE_BOTTOM - 40
-            _plate(draw, config.REEL_W // 2, handle_y, config.INSTAGRAM_HANDLE,
-                   handle_font)
+            # Sits lower than the old label so it clears the caption band
+            # entirely, and carries a faint shadow instead of a plate: enough
+            # to stay legible over white footage without announcing itself.
+            handle_y = config.REEL_H - _SAFE_BOTTOM + 52
+            alpha = max(0, min(255, config.REEL_HANDLE_ALPHA))
+            if config.REEL_HANDLE_PLATE:
+                _plate(draw, config.REEL_W // 2, handle_y,
+                       config.INSTAGRAM_HANDLE, handle_font)
             draw.text((config.REEL_W // 2, handle_y), config.INSTAGRAM_HANDLE,
-                      font=handle_font, fill=(242, 242, 246, 235), anchor="mm")
+                      font=handle_font, fill=(255, 255, 255, alpha),
+                      anchor="mm", stroke_width=2,
+                      stroke_fill=(0, 0, 0, max(0, alpha - 45)))
         if config.RANK_CHIP and chip_rank > 0 and items:
             _draw_rank_chip(draw, chip_rank, len(items))
         if rank > 0:
