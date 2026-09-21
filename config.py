@@ -177,7 +177,20 @@ TIER_ILLUSTRATIVE = "ILLUSTRATIVE"
 # words the clip's page slug must carry. It is what stops "luxury suburban
 # neighborhood aerial" returning the Statue of Liberty -- a famous place shown
 # under someone else's name is the one substitution a viewer WOULD catch.
-ILLUSTRATIVE_MATCH_RATIO = float(os.getenv("ILLUSTRATIVE_MATCH_RATIO", "0.34"))
+# Share of the author's own words a clip's slug must carry. Measured against
+# the first flat-tire build (2026-09-20), where every pick was scored: the
+# clips that actually showed the step scored 0.50-0.75, and every clip that
+# did not scored 0.33 or less -- "pull over safely" landed on a couple
+# drinking coffee at 0.25, "fit the spare" on a man inspecting a tyre at 0.33.
+# The split was clean, so the threshold sits between the two groups.
+ILLUSTRATIVE_MATCH_RATIO = float(os.getenv("ILLUSTRATIVE_MATCH_RATIO", "0.5"))
+
+# The last-chance round, for a descriptive phrase that shares few words with
+# any slug. It used to be half the main ratio, which at the old 0.34 meant
+# 0.17 -- one common word carried a match, and that is exactly how the coffee
+# couple got in. An explicit floor instead, so raising the main ratio cannot
+# silently loosen the fallback.
+ILLUSTRATIVE_RELAXED_RATIO = float(os.getenv("ILLUSTRATIVE_RELAXED_RATIO", "0.34"))
 
 # How many of the entity's distinctive words a stock page slug must contain
 # before the clip counts as EXACT. 1.0 = all of them. Dropping this is how

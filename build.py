@@ -61,7 +61,7 @@ def make_beats(plan: dict) -> list:
     # the numeral in the voice cannot disagree.
     verbatim = bool(plan.get("verbatim"))
     beats = [{"role": "hook", "line": plan.get("hook", ""), "rank": 0,
-              "caption": ""}]
+              "caption": "", "query": plan.get("hook_query", "")}]
 
     tease = (plan.get("tease") or "").strip()
     # Placed by fraction through the list rather than at a fixed index, so the
@@ -79,6 +79,8 @@ def make_beats(plan: dict) -> list:
                       "name": item["name"], "kind": item.get("kind", "other"),
                       "query": item.get("query", ""),
                       "depictable": bool(item.get("depictable")),
+                      "pinned": item.get("pinned") or [],
+                      "stills": bool(item.get("stills")),
                       "min_seconds": float(item.get("min_seconds") or 0)})
         if position + 1 == tease_after:
             beats.append({"role": "tease", "line": tease, "rank": 0,
@@ -86,7 +88,8 @@ def make_beats(plan: dict) -> list:
 
     cta = plan.get("cta") or config.CTA_LINE
     if cta:
-        beats.append({"role": "cta", "line": cta, "rank": 0, "caption": ""})
+        beats.append({"role": "cta", "line": cta, "rank": 0, "caption": "",
+                      "query": plan.get("cta_query", "")})
     return beats
 
 
@@ -112,7 +115,9 @@ def gather_visuals(beats: list, log, day_dir: Path) -> tuple:
             log(f"    #{beat['rank']:<2} {beat['name']}")
             found = visuals.for_item(beat["name"], beat["kind"], seen, log,
                                      day_dir, query=beat.get("query", ""),
-                                     depictable=beat.get("depictable", False))
+                                     depictable=beat.get("depictable", False),
+                                     pinned=beat.get("pinned") or None,
+                                     stills=beat.get("stills", False))
             shots = found.shots
             report.append({"rank": beat["rank"], "name": beat["name"],
                            "tier": found.tier,
@@ -125,7 +130,18 @@ def gather_visuals(beats: list, log, day_dir: Path) -> tuple:
                 log(f"      -> {found.tier}: on screen is "
                     f"{shots[0].subject if shots else 'nothing'}")
         else:
-            shots = visuals.generic(1, seen, log)
+            # A hook or CTA with its own query is an instruction like any
+            # other. Before this, every non-item beat took generic mood
+            # footage and the author's query was ignored -- which is how a
+            # flat-tire reel opened on aerial clouds.
+            query = beat.get("query", "")
+            shots = []
+            if query:
+                shots = visuals._authored_shots(query, beat["role"], 1, seen, log)
+                if not shots:
+                    log(f"      (nothing matched '{query}' for the "
+                        f"{beat['role']}; using mood footage)")
+            shots = shots or visuals.generic(1, seen, log)
             report.append({"rank": 0, "name": beat["role"],
                            "tier": config.TIER_GENERIC,
                            "shots": [{"file": Path(s.path).name,

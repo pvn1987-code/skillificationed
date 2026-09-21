@@ -110,6 +110,114 @@ def _download(url: str, dest: Path) -> None:
     part.replace(dest)
 
 
+PHOTO_SEARCH = "https://api.pexels.com/v1/search"
+_PHOTO_CACHE = {}
+
+
+def search_photos(query: str, per_page: int = 40) -> list:
+    """Portrait stock STILLS. Same key and account as the clip search.
+
+    A photo dict carries the same `url` slug a video does, so match_ratio and
+    the slug screens apply to it unchanged.
+    """
+    if query in _PHOTO_CACHE:
+        return _PHOTO_CACHE[query]
+    if not config.PEXELS_API_KEY:
+        raise StockError("PEXELS_API_KEY is not set in .env")
+    response = requests.get(
+        PHOTO_SEARCH, headers={"Authorization": config.PEXELS_API_KEY},
+        params={"query": query, "orientation": "portrait",
+                "size": "large", "per_page": per_page}, timeout=_TIMEOUT)
+    if response.status_code == 429:
+        raise StockQuotaError("Pexels rate limit reached (200/hour)")
+    if response.status_code != 200:
+        raise StockError(f"Pexels {response.status_code}: {response.text[:120]}")
+    photos = response.json().get("photos") or []
+    _PHOTO_CACHE[query] = photos
+    return photos
+
+
+def find_photo(query: str, distinctive, seen: set | None = None,
+               min_ratio: float | None = None) -> tuple | None:
+    """Best on-query portrait still, gated by the same ratio clips are."""
+    floor = config.ILLUSTRATIVE_MATCH_RATIO if min_ratio is None else min_ratio
+    seen = seen if seen is not None else set()
+    ranked = []
+    for photo in search_photos(query):
+        if photo.get("id") in seen:
+            continue
+        ratio = match_ratio(photo, distinctive)
+        if ratio < floor:
+            continue
+        ranked.append((ratio, photo))
+    if not ranked:
+        return None
+    ranked.sort(key=lambda pair: -pair[0])
+    ratio, photo = ranked[0]
+    src = photo.get("src") or {}
+    url = src.get("portrait") or src.get("large2x") or src.get("original")
+    if not url:
+        return None
+    dest = config.ASSET_CACHE / f"pexels-photo-{photo['id']}.jpg"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if not (dest.exists() and dest.stat().st_size > 0):
+        _download(url, dest)
+    seen.add(photo["id"])
+    return dest, {
+        "asset_id": f"pexels-photo-{photo['id']}",
+        "page": photo.get("url", ""),
+        "author": photo.get("photographer", ""),
+        "author_url": photo.get("photographer_url", ""),
+        "source": "pexels-photo",
+        "match_ratio": round(ratio, 2),
+    }
+
+
+def fetch_by_id(video_id: int, seen: set | None = None) -> tuple | None:
+    """One specific clip, by Pexels id. No search, no slug gate.
+
+    For the cases the slug language cannot express. "Car jack lifting vehicle"
+    and "luxury sports car on vehicle lift" share the words a ratio can see,
+    so a two-post workshop lift scores exactly as well as a jack under a wheel
+    -- and a tutorial step that says "jack" cannot show a lift. When a person
+    has watched a clip and knows it is right, the id IS the evidence and the
+    gate has nothing left to add.
+
+    Bypassing the gate is the whole point, so it is only ever reached from an
+    explicit `pexels_ids` in a spec, never from a search result.
+    """
+    if not config.PEXELS_API_KEY:
+        raise StockError("PEXELS_API_KEY is not set in .env")
+    if seen is not None and video_id in seen:
+        return None
+    response = requests.get(f"https://api.pexels.com/videos/videos/{video_id}",
+                            headers={"Authorization": config.PEXELS_API_KEY},
+                            timeout=_TIMEOUT)
+    if response.status_code == 429:
+        raise StockQuotaError("Pexels rate limit reached")
+    if response.status_code != 200:
+        raise StockError(f"Pexels {response.status_code} for clip {video_id}")
+    video = response.json()
+    chosen = _pick_file(video)
+    if not chosen:
+        raise StockError(f"clip {video_id} has no usable portrait rendition")
+    dest = config.ASSET_CACHE / f"pexels-{video_id}-{chosen['id']}.mp4"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if not (dest.exists() and dest.stat().st_size > 0):
+        _download(chosen["link"], dest)
+    if seen is not None:
+        seen.add(video_id)
+    return dest, {
+        "asset_id": f"pexels-{video_id}",
+        "page": video.get("url", ""),
+        "author": (video.get("user") or {}).get("name", ""),
+        "author_url": (video.get("user") or {}).get("url", ""),
+        "source": "pexels",
+        "match_ratio": "pinned",
+        "duration": video.get("duration"),
+    }
+
+
 def probe(terms: list, distinctive, seen: set | None = None,
           min_ratio: float | None = None) -> tuple:
     """(best ratio, how many clips would pass) WITHOUT downloading anything.

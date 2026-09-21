@@ -173,6 +173,75 @@ def _commons_shots(entity, wanted: int, seen: set, log, day_dir: Path) -> list:
     return shots
 
 
+def _photo_shots(query: str, name: str, wanted: int, seen: set, log,
+                 day_dir: Path) -> list:
+    """Pexels STILLS for an authored query, given motion by Ken Burns.
+
+    Stock libraries hold far more photographs than clips, and a photograph is
+    shot to be legible in one frame where a clip is shot to move -- so for an
+    instruction like "loosen the nuts before you jack", a still is often the
+    more literal picture of the step. The cost is that it does not move on its
+    own, which is what the Ken Burns push is for.
+
+    Same slug gate as the clip path: a photograph that does not carry the
+    author's words is no more use than a clip that does not.
+    """
+    distinctive = _query_tokens(query, distinctive_only=True) or _query_tokens(query)
+    shots, directions = [], ("in", "out", "in", "out")
+    for index in range(wanted):
+        try:
+            found = stock.find_photo(query, distinctive, seen=seen)
+        except Exception as exc:                  # noqa: BLE001
+            log(f"      photo search failed: {exc}")
+            break
+        if not found:
+            break
+        source, credit = found
+        direction = directions[index % 4]
+        clip = day_dir / f"kbp-{source.stem}-{direction}.mp4"
+        if not clip.exists():
+            try:
+                kenburns.render(source, clip, direction=direction)
+            except kenburns.KenBurnsError as exc:
+                log(f"      ken burns failed: {exc}")
+                continue
+        credit["motion"] = f"ken burns {direction}"
+        shots.append(Shot(path=clip, credit=credit,
+                          tier=config.TIER_ILLUSTRATIVE, subject=query,
+                          note=f"photo, slug match {credit['match_ratio']}"))
+        log(f"      photo: {credit['page'].rstrip('/').rsplit('/', 1)[-1][:44]}"
+            f"  match={credit['match_ratio']}")
+    return shots
+
+
+def pinned_shots(ids: list, name: str, wanted: int, seen: set, log) -> list:
+    """Clips a person chose by id, in the order they chose them.
+
+    For the cases the slug language cannot express. "car jack lifting vehicle"
+    and "luxury sports car on vehicle lift" share every word a ratio can see,
+    so a two-post workshop lift scores exactly as well as a jack under a wheel
+    -- and a tutorial step that says "jack" must not show a lift. When someone
+    has watched the frames, the id IS the evidence.
+    """
+    shots = []
+    for video_id in ids:
+        try:
+            found = stock.fetch_by_id(int(video_id), seen=seen)
+        except Exception as exc:                  # noqa: BLE001
+            log(f"      ! pinned clip {video_id}: {exc}")
+            continue
+        if not found:
+            continue
+        path, credit = found
+        shots.append(Shot(path=path, credit=credit,
+                          tier=config.TIER_ILLUSTRATIVE,
+                          subject=name, note="pinned by id"))
+        log(f"      pinned: {video_id}")
+        if len(shots) >= wanted:
+            break
+    return shots
+
+
 def _authored_shots(query: str, name: str, wanted: int, seen: set, log) -> list:
     """The shots a person asked for, gated on their own words.
 
@@ -200,7 +269,7 @@ def _authored_shots(query: str, name: str, wanted: int, seen: set, log) -> list:
     # `office` can carry it and `valley` cannot.
     rounds = [(config.ILLUSTRATIVE_MATCH_RATIO, False),
               (config.ILLUSTRATIVE_MATCH_RATIO, False),
-              (config.ILLUSTRATIVE_MATCH_RATIO / 2, True)]
+              (config.ILLUSTRATIVE_RELAXED_RATIO, True)]
     for ratio, strict_words in rounds:
         for phrase in phrases:
             if len(shots) >= wanted:
@@ -222,7 +291,9 @@ def _authored_shots(query: str, name: str, wanted: int, seen: set, log) -> list:
 
 def for_item(name: str, kind: str, seen: set, log, day_dir: Path,
              wanted: int | None = None, query: str = "",
-             depictable: bool = False) -> ItemVisuals:
+             depictable: bool = False,
+             pinned: list | None = None,
+             stills: bool = False) -> ItemVisuals:
     """Walk the ladder for one numbered item."""
     wanted = wanted or config.SHOTS_PER_ITEM
 
@@ -249,6 +320,28 @@ def for_item(name: str, kind: str, seen: set, log, day_dir: Path,
     #
     # It is only when nobody could recognise the subject that the query is
     # allowed to carry the item.
+    # A pinned id outranks everything else: it is the only input carrying a
+    # person's eyes on the actual frames rather than on a slug.
+    if pinned:
+        found = pinned_shots(pinned, name, wanted, seen, log)
+        if found:
+            result = ItemVisuals(name=name, shots=found[:wanted],
+                                 tier=config.TIER_ILLUSTRATIVE)
+            while len(result.shots) < wanted:
+                result.shots.append(result.shots[0])
+            return result
+        log(f"      ! no pinned clip resolved for {name}; falling back")
+
+    if query and stills:
+        found = _photo_shots(query, name, wanted, seen, log, day_dir)
+        if found:
+            result = ItemVisuals(name=name, shots=found[:wanted],
+                                 tier=config.TIER_ILLUSTRATIVE)
+            while len(result.shots) < wanted:
+                result.shots.append(result.shots[0])
+            return result
+        log(f"      (no still matched your query for {name}; trying clips)")
+
     if query and not depictable:
         found = _authored_shots(query, name, wanted, seen, log)
         if found:

@@ -127,6 +127,13 @@ def load_dict(raw: dict, source: str = "spec") -> dict:
             # Absent (a hand-written spec) means "trust the query", which is
             # how specs behaved before the planner learned to emit this.
             "depictable": bool(entry.get("depictable", False)),
+            # Clip ids a person has watched and chosen. Outranks the query,
+            # because it is the only input backed by someone's eyes.
+            "pinned": [str(v).strip() for v in (entry.get("pexels_ids") or [])
+                       if str(v).strip()],
+            # Photographs instead of clips for this step. Set per item, or for
+            # the whole spec with a top-level "stills": true.
+            "stills": bool(entry.get("stills", raw.get("stills", False))),
         })
     # Steps ascend, ranks descend. Getting this backwards would play a
     # tutorial from its last step to its first.
@@ -139,6 +146,12 @@ def load_dict(raw: dict, source: str = "spec") -> dict:
                   or "spec").strip(),
         "title": (intro.get("on_screen_text") or "").strip(),
         "hook": (intro.get("voiceover") or "").strip(),
+        # The hook is the shot that decides whether anyone watches, and its
+        # pexels_query was being dropped here: every spec opened on whatever
+        # generic mood footage `visuals.generic` returned. The flat-tire build
+        # asked for "car flat tire roadside" and opened on aerial clouds.
+        "hook_query": (intro.get("pexels_query") or "").strip(),
+        "cta_query": (outro.get("pexels_query") or "").strip(),
         # A hand-written spec has no mid-roll tease and the builder simply
         # omits it rather than inventing one; a generated spec supplies one.
         "tease": (raw.get("tease") or "").strip(),

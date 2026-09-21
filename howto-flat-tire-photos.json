@@ -1,6 +1,6 @@
 {
   "format": "howto",
-  "topic": "How to Change a Flat Tire",
+  "topic": "How to Change a Flat Tire (photos)",
   "sources_note": "General vehicle maintenance guidance. Always follow your vehicle's own handbook.",
   "intro": {
     "on_screen_text": "How To Change A Flat Tire",
@@ -31,10 +31,7 @@
       "on_screen_text": "Jack at the right point",
       "voiceover": "Jack only at the reinforced point marked in your handbook.",
       "pexels_query": "car jack lifting vehicle",
-      "duration_sec": 4.0,
-      "pexels_ids": [
-        37451898
-      ]
+      "duration_sec": 4.0
     },
     {
       "rank": 4,
@@ -74,5 +71,6 @@
     "voiceover": "Most spares are space savers. Keep it under fifty miles an hour.",
     "pexels_query": "car driving highway",
     "duration_sec": 3.5
-  }
+  },
+  "stills": true
 }
