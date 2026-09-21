@@ -440,3 +440,20 @@ signal that makes someone read the rest of the tile, so the item count fills in.
 Wide type is sized larger relative to its canvas than vertical type: a search
 result is a couple of hundred pixels across, and type scaled to look right at
 full size vanishes there.
+
+## Which account this posts to *(2026-09-20)*
+
+ReelForge is its own repo (`pvn1987-code/skillificationed`, private) and its
+own channel. It shares NOTHING with pa1kura.ai except three per-service keys
+that are quotas rather than identity: Gemini, Pexels and the Vercel blob token.
+
+**The trap.** This project was forked from AI_News and the working `.env` came
+with it, so `IG_USER_ID`, `THREADS_USER_ID` and `BRAND_HANDLE` were still
+@pa1kura's on 2026-09-20. No harm done yet, because there is no publisher in
+this repo -- but the first one added will post countdown reels to the AI-news
+account unless those three are repointed first. Repoint them BEFORE writing
+any publish code, not after.
+
+The two pipelines also share the TTS venv (`.venv-reel`) and nothing else.
+Changes to the renderer, captions or voice clone do not propagate between them;
+they were copied at fork time and have diverged since.
