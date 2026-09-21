@@ -1,0 +1,16 @@
+{
+  "intro": { "step": 0, "on_screen_text": "Top 10 Places You NEED To Visit Before You Die", "voiceover": "Here are the top 10 places you need to visit before you die.", "pexels_query": "scenic drone travel landscape 4k", "duration_sec": 3.0 },
+  "items": [
+    { "rank": 10, "place_name": "Salar de Uyuni, Bolivia", "on_screen_text": "10. Salar de Uyuni, Bolivia", "voiceover": "Number 10. Salar de Uyuni, Bolivia — the world's largest mirror.", "pexels_query": "Salar de Uyuni salt flats", "duration_sec": 2.5 },
+    { "rank": 9, "place_name": "Santorini, Greece", "on_screen_text": "9. Santorini, Greece", "voiceover": "Number 9. Santorini, Greece.", "pexels_query": "Santorini Greece aerial ocean", "duration_sec": 2.2 },
+    { "rank": 8, "place_name": "Petra, Jordan", "on_screen_text": "8. Petra, Jordan", "voiceover": "Number 8. The ancient rose-red city of Petra, Jordan.", "pexels_query": "Petra Jordan Treasury", "duration_sec": 2.5 },
+    { "rank": 7, "place_name": "Banff National Park, Canada", "on_screen_text": "7. Banff, Canada", "voiceover": "Number 7. Banff National Park, Canada.", "pexels_query": "Moraine Lake Banff Canada turquoise", "duration_sec": 2.2 },
+    { "rank": 6, "place_name": "Kyoto, Japan", "on_screen_text": "6. Kyoto, Japan", "voiceover": "Number 6. The bamboo groves and shrines of Kyoto, Japan.", "pexels_query": "Arashiyama bamboo forest Kyoto", "duration_sec": 2.5 },
+    { "rank": 5, "place_name": "Machu Picchu, Peru", "on_screen_text": "5. Machu Picchu, Peru", "voiceover": "Number 5. Machu Picchu in Peru.", "pexels_query": "Machu Picchu Peru mountains", "duration_sec": 2.2 },
+    { "rank": 4, "place_name": "Tromsø, Norway", "on_screen_text": "4. Tromsø, Norway (Northern Lights)", "voiceover": "Number 4. Chasing the Northern Lights in Tromsø, Norway.", "pexels_query": "Northern Lights Aurora Borealis Norway", "duration_sec": 2.5 },
+    { "rank": 3, "place_name": "Great Barrier Reef, Australia", "on_screen_text": "3. Great Barrier Reef, Australia", "voiceover": "Number 3. The Great Barrier Reef, Australia.", "pexels_query": "Great Barrier Reef aerial coral reef", "duration_sec": 2.2 },
+    { "rank": 2, "place_name": "Pyramids of Giza, Egypt", "on_screen_text": "2. Pyramids of Giza, Egypt", "voiceover": "Number 2. The Great Pyramids of Giza, Egypt.", "pexels_query": "Pyramids of Giza Cairo sunset", "duration_sec": 2.3 },
+    { "rank": 1, "place_name": "Amalfi Coast, Italy", "on_screen_text": "1. Amalfi Coast, Italy", "voiceover": "And Number 1. The breathtaking Amalfi Coast, Italy.", "pexels_query": "Positano Amalfi Coast Italy cliffside", "duration_sec": 2.8 }
+  ],
+  "outro": { "step": 11, "on_screen_text": "Which one is on your bucket list?\nFollow for more!", "voiceover": "Which one is on your bucket list? Follow along if you like this!", "pexels_query": "airplane window sunset travel", "duration_sec": 3.0 }
+}

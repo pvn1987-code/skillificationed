@@ -1,0 +1,4 @@
+# The heavy venv only. Set REEL_VENV in .env to an existing install to skip
+# this entirely -- it pulls torch and is about 3GB.
+mlx-audio>=0.5.3
+mlx-whisper>=0.4.3
