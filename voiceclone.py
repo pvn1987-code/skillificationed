@@ -182,9 +182,11 @@ def _retime(path: Path) -> Path:
 
 def transcribe_words(audio_path: Path, out_json: Path) -> list:
     """Word-level timestamps, for caption timing. Empty list is survivable."""
-    _run(["asr", "--audio", str(audio_path), "--out", str(out_json),
-          "--model", config.REEL_ASR_MODEL, "--backend", config.REEL_ASR_BACKEND],
-         timeout=1800)
+    args = ["asr", "--audio", str(audio_path), "--out", str(out_json),
+           "--model", config.REEL_ASR_MODEL, "--backend", config.REEL_ASR_BACKEND]
+    if config.REEL_ASR_LANGUAGE:
+        args += ["--language", config.REEL_ASR_LANGUAGE]
+    _run(args, timeout=1800)
     if not out_json.exists():
         return []
     return json.loads(out_json.read_text()).get("words") or []

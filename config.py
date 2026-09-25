@@ -168,6 +168,18 @@ TEMPERATURE = float(os.getenv("TEMPERATURE", "0.8"))
 SPEECH_SPEED = float(os.getenv("SPEECH_SPEED", "1.0"))
 ASR_BACKEND = os.getenv("ASR_BACKEND", "mlx_whisper").strip()
 ASR_MODEL = os.getenv("ASR_MODEL", "mlx-community/whisper-large-v3-turbo").strip()
+# Without this, Whisper auto-detects the spoken language from the audio --
+# and on a short (7-9s) non-English clip it guesses wrong often enough to
+# matter: a Telugu beat came back transcribed as Kannada/Gujarati-flavoured
+# phonetic nonsense sharing not one real word with the actual script, so
+# caption timing (which aligns Whisper's words against the script) had
+# almost nothing to anchor on. Derived from EDGE_TTS_VOICE's own language
+# prefix ("te-IN-ShrutiNeural" -> "te") so a voice switch cannot leave this
+# stale; ASR_LANGUAGE overrides it explicitly when set, and "" restores
+# auto-detect (e.g. for Chatterbox, whose cloned voice has no such prefix).
+ASR_LANGUAGE = os.getenv("ASR_LANGUAGE", "").strip() or (
+    EDGE_TTS_VOICE.split("-", 1)[0].lower()
+    if TTS_ENGINE == "edge" and len(EDGE_TTS_VOICE.split("-", 1)[0]) == 2 else "")
 
 # --- Visual sourcing: the authenticity ladder -------------------------------
 # The whole point of this project. Pexels never returns an empty result set --
@@ -307,4 +319,5 @@ REEL_TEMPERATURE = TEMPERATURE
 REEL_SPEECH_SPEED = SPEECH_SPEED
 REEL_ASR_BACKEND = ASR_BACKEND
 REEL_ASR_MODEL = ASR_MODEL
+REEL_ASR_LANGUAGE = ASR_LANGUAGE
 REEL_REJECT_FACES = REJECT_FACES

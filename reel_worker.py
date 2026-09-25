@@ -119,16 +119,29 @@ def _words_from(result) -> list:
 
 
 def do_asr(args) -> None:
+    # Without a language hint, Whisper auto-detects from the audio -- and on a
+    # short (7-9s) non-English clip it guesses wrong often enough to matter.
+    # A Telugu beat came back transcribed as "lho munchi kovulu... ಈવी
+    # રक्तल् lho chakker..." -- Kannada and Gujarati
+    # characters mixed into a phonetic Latin guess, sharing not one real word
+    # with the actual script apart from a bare digit. retime_script's alignment
+    # then had exactly one anchor (that digit) to work with, and everything
+    # after it collapsed into a compressed pile instead of tracking the voice.
     if args.backend == "mlx_whisper":
         import mlx_whisper
-        result = mlx_whisper.transcribe(
-            args.audio, path_or_hf_repo=args.model, word_timestamps=True)
+        kwargs = {"path_or_hf_repo": args.model, "word_timestamps": True}
+        if args.language:
+            kwargs["language"] = args.language
+        result = mlx_whisper.transcribe(args.audio, **kwargs)
     else:
         function = _resolve(_ASR_ENTRIES)
         # word_timestamps rides through **kwargs to Whisper's generate().
-        result = function(model=args.model, audio=args.audio,
-                          output_path=args.out.removesuffix(".json"),
-                          format="json", verbose=False, word_timestamps=True)
+        kwargs = {"model": args.model, "audio": args.audio,
+                  "output_path": args.out.removesuffix(".json"),
+                  "format": "json", "verbose": False, "word_timestamps": True}
+        if args.language:
+            kwargs["language"] = args.language
+        result = function(**_supported(function, **kwargs))
 
     words = _words_from(result)
     text = ""
@@ -225,6 +238,8 @@ def main() -> int:
     asr.add_argument("--out", required=True)
     asr.add_argument("--model", required=True)
     asr.add_argument("--backend", default="mlx_audio")
+    asr.add_argument("--language", default="",
+                     help="ISO 639-1 hint (e.g. 'te'); empty lets Whisper guess")
     asr.set_defaults(func=do_asr)
 
     faces = sub.add_parser("faces")
