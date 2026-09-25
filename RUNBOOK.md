@@ -375,6 +375,28 @@ not ASR settings) -- after fixing the language hint, `rm -rf
 output/<slug>/reel_beats` before rebuilding, or the stale bad transcription
 gets reused unchanged.
 
+### A sentence's captions rush at the very end, even with the language hint fixed
+
+The language hint (above) gets Whisper transcribing CLOSE to the real
+script, but not exactly -- "నెమ్మదిగా" comes back as "నమ్మదిగా",
+"రక్తంలో" as "రక్తల్లో". `retime_script`'s matching is EXACT string
+equality (`difflib.SequenceMatcher`), so a near-miss spelling counts as no
+match at all, same as if Whisper had heard nothing. One real beat matched
+only "ఇది" ("this") as its last anchor, 4.5s into a 7.58s clip; the five
+words after it (over half the sentence) used to get a fixed ~0.14s slot
+each, counting forward with no notion of how much real audio was left --
+the whole tail flashed by in under a second while the voice kept speaking
+for three more seconds with no caption on screen.
+
+Fixed by passing `duration` (the beat's own `probe_duration`-measured wav
+length) into `retime_script`: unmatched leading/trailing words now spread
+across `[0, first anchor]` / `[last anchor, duration]` rather than a fixed
+step count, so the interpolation is always bounded by the clip's REAL
+length regardless of how few words happened to match exactly. Diagnose by
+comparing a beat's last caption word's `end` against its wav's actual
+duration (`ffprobe -show_entries format=duration`) -- they should be equal;
+a caption ending noticeably before the audio does is this bug.
+
 ### Telugu script over-translates specific terms
 
 A generated Telugu script must TRANSLITERATE (keep the actual English
