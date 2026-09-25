@@ -317,6 +317,46 @@ Heard-word count should equal the script's. If it does not, a take slipped
 through: `rm -rf output/<slug>/reel_beats` and rebuild. Keep any single
 Chatterbox call to one sentence or beat.
 
+### Non-Latin captions render as blank boxes
+
+`videocomposite._font()` and `thumbnail._compose()` used to always load
+`config.DISPLAY_FONT` (Anton-Regular.ttf) -- a Latin-only display font.
+Installing libraqm (see the Telugu localisation commit) fixes glyph
+SHAPING, i.e. which glyphs to combine for a conjunct or vowel sign; it does
+nothing when the font has no glyph for the codepoint in the first place,
+which Anton never did for Telugu. PIL draws a silent `.notdef` blank box
+per missing glyph rather than erroring, so this shipped in three earlier
+Telugu builds before anyone caught it.
+
+Fixed by `_font(size, text="")`: it picks `fonts/NotoSansTelugu-Bold.ttf`
+whenever `text` contains a codepoint in the Telugu Unicode block
+(`ఀ`-`౿`, U+0C00-U+0C7F), else falls back to `DISPLAY_FONT`. Every call
+site that draws a spec's actual localised text (caption words, an item's
+name plate) must pass that text in; call sites drawing brand furniture
+("NO.", "4/5", the follow handle) are correctly untouched, since that
+text is meant to stay in the brand's display font regardless of language.
+Adding a new script (Hindi, etc.) means adding both its font file and a
+`_is_<script>()` range check the same way.
+
+### Telugu script over-translates specific terms
+
+A generated Telugu script must TRANSLITERATE (keep the actual English
+word, in Telugu script) a specific named thing or a technical term, and
+only TRANSLATE genuinely descriptive language. This already applied to
+place names (see the intro's `pexels_query` note in spec.py); the same
+rule turned out to apply to food/ingredient category names and medical
+terms once tested on a real topic: Gemini's first pass rendered "diabetes"
+as "మధుమేహం" and "Nuts and Seeds" as "గింజలు మరియు విత్తనాలు" -- both
+technically valid dictionary Telugu, but not what this audience actually
+calls either thing, which changes the meaning they take from it. Genuine
+native names for a specific food (కాకరకాయ for bitter gourd, మెంతులు for
+fenugreek, రాగి for ragi) are correct as-is and must not be touched --
+the rule is about not inventing or forcing a translation, not about
+banning Telugu script itself. When this shows up, send the spec back to
+Gemini with the specific words to transliterate named explicitly; a vague
+instruction to "keep names in English" was not enough to stop it forcing
+a category translation.
+
 ### The audit says ok, the build says GENERIC
 
 They ask the same sources, so they can only disagree when a cache is missed or a
