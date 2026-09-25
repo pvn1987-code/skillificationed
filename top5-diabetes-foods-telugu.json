@@ -3,24 +3,24 @@
   "topic": "Top 5 foods for diabetes management over 50",
   "sources_note": "Information is based on general dietary recommendations for diabetes management.",
   "intro": {
-    "on_screen_text": "50+ వారికి మధుమేహం నియంత్రణకు 5 ఆహారాలు",
-    "voiceover": "మీరు 50 ఏళ్లు పైబడినవారా? మధుమేహం నియంత్రణకు సరైన ఆహారం ముఖ్యం. 5 ముఖ్యమైన ఆహారాలను చూద్దాం.",
+    "on_screen_text": "50+ వారికి డయాబెటిస్ నియంత్రణకు 5 ఆహారాలు",
+    "voiceover": "మీరు 50 ఏళ్లు పైబడినవారా? డయాబెటిస్ నియంత్రణకు సరైన ఆహారం ముఖ్యం. 5 ముఖ్యమైన ఆహారాలను చూద్దాం.",
     "pexels_query": "healthy vegetarian food elderly"
   },
   "items": [
     {
       "rank": 5,
       "name": "Oats and Whole Grains",
-      "on_screen_text": "ఓట్స్ మరియు తృణధాన్యాలు",
-      "voiceover": "5. ఓట్స్, తృణధాన్యాలలో పీచు ఎక్కువ. ఇది రక్తంలో చక్కెర స్థాయిలను నెమ్మదిగా పెంచుతుంది.",
+      "on_screen_text": "ఓట్స్ మరియు హోల్ గ్రెయిన్స్",
+      "voiceover": "5. ఓట్స్, హోల్ గ్రెయిన్స్‌లో పీచు ఎక్కువ. ఇది రక్తంలో చక్కెర స్థాయిలను నెమ్మదిగా పెంచుతుంది.",
       "depictable": false,
       "pexels_query": "oatmeal bowl breakfast"
     },
     {
       "rank": 4,
       "name": "Nuts and Seeds",
-      "on_screen_text": "గింజలు మరియు విత్తనాలు",
-      "voiceover": "4. గింజలు, విత్తనాలలో మంచి కొవ్వులు, ప్రొటీన్లు, పీచు ఉంటాయి. ఇవి రక్తంలో చక్కెర స్థాయిలను స్థిరంగా ఉంచుతాయి.",
+      "on_screen_text": "నట్స్ మరియు సీడ్స్",
+      "voiceover": "4. నట్స్, సీడ్స్‌లో మంచి కొవ్వులు, ప్రొటీన్లు, పీచు ఉంటాయి. ఇవి రక్తంలో చక్కెర స్థాయిలను స్థిరంగా ఉంచుతాయి.",
       "depictable": false,
       "pexels_query": "almonds walnuts bowl"
     },
@@ -28,7 +28,7 @@
       "rank": 3,
       "name": "Bitter Gourd",
       "on_screen_text": "కాకరకాయ",
-      "voiceover": "3. కాకరకాయ మధుమేహం నియంత్రణకు చాలా మంచిది. ఇది ఇన్సులిన్ సున్నితత్వాన్ని పెంచుతుంది.",
+      "voiceover": "3. కాకరకాయ డయాబెటిస్ నియంత్రణకు చాలా మంచిది. ఇది ఇన్సులిన్ సున్నితత్వాన్ని పెంచుతుంది.",
       "depictable": false,
       "pexels_query": "bitter melon vegetable"
     },
@@ -43,8 +43,8 @@
     {
       "rank": 1,
       "name": "Ragi and Millets",
-      "on_screen_text": "రాగి మరియు ఇతర చిరుధాన్యాలు",
-      "voiceover": "1. రాగి, చిరుధాన్యాలలో పీచు పుష్కలంగా ఉంటుంది. ఇది రక్తంలో చక్కెర స్థాయిలను అదుపులో ఉంచుతుంది.",
+      "on_screen_text": "రాగి మరియు ఇతర మిల్లెట్స్",
+      "voiceover": "1. రాగి, మిల్లెట్స్‌లో పీచు పుష్కలంగా ఉంటుంది. ఇది రక్తంలో చక్కెర స్థాయిలను అదుపులో ఉంచుతుంది.",
       "depictable": false,
       "pexels_query": "millet grain bowl"
     }

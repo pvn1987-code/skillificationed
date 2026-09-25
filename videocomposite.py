@@ -64,8 +64,21 @@ def _rgb(value: str) -> tuple:
     return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
 
 
-def _font(size: int) -> ImageFont.FreeTypeFont:
-    return ImageFont.truetype(str(config.ROOT / "fonts" / config.DISPLAY_FONT), size)
+# config.DISPLAY_FONT (Anton) has zero Telugu glyph coverage -- PIL renders
+# an unmatched codepoint as a blank .notdef box, no error, no fallback. Every
+# Telugu build's on-screen text (captions, item names) landed here despite the
+# raqm install, because raqm only fixes SHAPING (which glyphs to combine);
+# without the glyphs to begin with, shaping them correctly changes nothing.
+_TELUGU_FONT = "NotoSansTelugu-Bold.ttf"
+
+
+def _is_telugu(text: str) -> bool:
+    return any("ఀ" <= ch <= "౿" for ch in text)
+
+
+def _font(size: int, text: str = "") -> ImageFont.FreeTypeFont:
+    name = _TELUGU_FONT if _is_telugu(text) else config.DISPLAY_FONT
+    return ImageFont.truetype(str(config.ROOT / "fonts" / name), size)
 
 
 # --- timing -----------------------------------------------------------------
@@ -342,8 +355,9 @@ def _layout(draw, tokens: list, size: int) -> tuple:
     as uneven spacing. Now each word owns a fixed box and simply fills more of
     it when active, so nothing reflows.
     """
-    font = _font(size)
-    big = _font(round(size * config.REEL_HIGHLIGHT_SCALE))
+    sample = " ".join(tokens)
+    font = _font(size, sample)
+    big = _font(round(size * config.REEL_HIGHLIGHT_SCALE), sample)
     max_width = config.REEL_W - 2 * _SIDE_MARGIN
     space = draw.textlength(" ", font=font)
 
@@ -503,12 +517,12 @@ def _draw_rank_card(draw, rank: int, caption: str, progress: float,
         # stays the strong shape and the detail reads as detail.
         lines = [part.strip() for part in caption.split("\n") if part.strip()]
         label = lines[0].upper()
-        name_font = _font(72)
+        name_font = _font(72, label)
         # Shrink rather than wrap: a wrapped name at this size collides with
         # the caption band below it.
         while draw.textlength(label, font=name_font) > config.REEL_W - 120 \
                 and name_font.size > 34:
-            name_font = _font(name_font.size - 4)
+            name_font = _font(name_font.size - 4, label)
         width = draw.textlength(label, font=name_font)
         box_y = numeral_y + 168
         half_h = name_font.size / 2 + 20
@@ -520,12 +534,12 @@ def _draw_rank_card(draw, rank: int, caption: str, progress: float,
                   fill=(14, 14, 16, alpha), anchor="mm")
 
         sub_y = box_y + half_h + 34
-        sub_font = _font(44)
         for extra in lines[1:2]:
             text = extra.upper()
+            sub_font = _font(44, text)
             while draw.textlength(text, font=sub_font) > config.REEL_W - 140 \
                     and sub_font.size > 26:
-                sub_font = _font(sub_font.size - 3)
+                sub_font = _font(sub_font.size - 3, text)
             draw.text((centre_x, sub_y), text, font=sub_font,
                       fill=(255, 255, 255, alpha), anchor="mm",
                       stroke_width=7, stroke_fill=(10, 10, 12, alpha))

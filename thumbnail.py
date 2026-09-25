@@ -192,13 +192,13 @@ def _compose(frame: Path, count: str, subject: str, size: tuple,
     count_size = int(height * (0.115 if tall else 0.15))
     subj_size = int(height * (0.072 if tall else 0.092))
     count_font = vc._font(count_size)
-    subj_font = vc._font(subj_size)
+    subj_font = vc._font(subj_size, subject)
     while subj_size > 20:
         lines = _wrap(draw, subject, subj_font, text_w)
         if len(lines) <= (3 if tall else 2):
             break
         subj_size -= 4
-        subj_font = vc._font(subj_size)
+        subj_font = vc._font(subj_size, subject)
     lines = _wrap(draw, subject, subj_font, text_w)
 
     line_h = int(subj_size * 1.04)
