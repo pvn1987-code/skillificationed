@@ -1,0 +1,57 @@
+{
+  "format": "countdown",
+  "topic": "Top 5 Famous Ganesh Pandals Hyderabad (Telugu)",
+  "sources_note": "Telugu-language, religious/cultural content. Footage is generic real Ganesh idol/festival stock (Pexels) -- honestly ILLUSTRATIVE tier, not verified as the specific named pandal, since no stock library has idol-specific coverage.",
+  "intro": {
+    "on_screen_text": "హైదరాబాద్ టాప్ 5 గణేష్ పండాల్స్",
+    "voiceover": "గణేష్ చతుర్థి సందర్భంగా హైదరాబాద్‌లోని అత్యంత ప్రసిద్ధ గణేష్ పండాల్స్ గురించి ఈ రోజు తెలుసుకుందాం.",
+    "pexels_query": "Ganesh idol festival decorated"
+  },
+  "items": [
+    {
+      "rank": 5,
+      "name": "Khairatabad Ganesh",
+      "on_screen_text": "ఖైరతాబాద్ గణేష్",
+      "voiceover": "5. హైదరాబాద్‌లోని అత్యంత ఎత్తైన, ప్రసిద్ధ పంచముఖ సంకటహర మహా గణపతి ఇది.",
+      "depictable": false,
+      "pexels_query": "giant Ganesha idol tall statue"
+    },
+    {
+      "rank": 4,
+      "name": "Balapur Ganesh",
+      "on_screen_text": "బాలాపూర్ గణేష్",
+      "voiceover": "4. బాలాపూర్ గణేష్ లడ్డు వేలం దేశవ్యాప్తంగా ప్రసిద్ధి. భక్తులు కోట్లలో బిడ్లు వేస్తారు.",
+      "depictable": false,
+      "pexels_query": "Ganesha idol devotees offering"
+    },
+    {
+      "rank": 3,
+      "name": "Begum Bazar Ganesh",
+      "on_screen_text": "బేగంబజార్ గణేష్",
+      "voiceover": "3. బేగంబజార్ గణేష్ 24 క్యారెట్ల బంగారు పూత, వేల వజ్రాలతో అలంకరించబడిన విగ్రహం.",
+      "depictable": false,
+      "pexels_query": "Ganesha idol golden decorated ornate"
+    },
+    {
+      "rank": 2,
+      "name": "Nagole Ashta-Siddhi Ganapathi",
+      "on_screen_text": "నాగోల్ అష్టసిద్ధి గణపతి",
+      "voiceover": "2. నగరంలో 72 అడుగుల ఎత్తుతో, అష్టసిద్ధి రూపాలను సూచించే అత్యంత ఎత్తైన విగ్రహాలలో ఇది ఒకటి.",
+      "depictable": false,
+      "pexels_query": "Ganesha idol workshop artist painting"
+    },
+    {
+      "rank": 1,
+      "name": "Dhoolpet Bappa",
+      "on_screen_text": "ధూల్‌పేట్ బాప్పా",
+      "voiceover": "1. ధూల్‌పేట్ బాప్పా హైదరాబాద్‌లోని పురాతన, సాంప్రదాయ గణేష్ పండాల్, దశాబ్దాల భక్తికి ప్రతీక.",
+      "depictable": false,
+      "pexels_query": "Ganesha idol traditional festival procession"
+    }
+  ],
+  "outro": {
+    "on_screen_text": "గణేష్ చతుర్థి శుభాకాంక్షలు!\nమీకు ఇష్టమైన పండాల్ ఏది?",
+    "voiceover": "ఈ గణేష్ చతుర్థి మీకు శుభాలను అందించాలని కోరుకుంటున్నాము. మీకు అత్యంత ఇష్టమైన పండాల్ ఏంటో మాకు తెలియజేయండి.",
+    "pexels_query": "Ganesh idol festival celebration"
+  }
+}

@@ -1,17 +1,28 @@
-"""Speech and word timestamps, via the isolated .venv-reel.
+"""Speech and word timestamps.
 
-Chatterbox was chosen over Kokoro for one decisive reason: Kokoro ships fixed
-voicepacks and cannot clone a voice at all, so it could never say anything in
-Pavan's voice. Chatterbox does zero-shot cloning from a short reference clip
-and runs natively on Apple Silicon through mlx_audio.
+Two engines behind config.TTS_ENGINE:
 
-Everything here is a subprocess call into .venv-reel — this module never
-imports mlx, so the carousel's venv stays exactly as it is.
+  "edge" (default) -- Microsoft's free cloud neural voices via `edge-tts`.
+      Mature and consistently clean; the whole reason to switch to it is that
+      VOICE_SAMPLE has never actually been set here, so Chatterbox's one real
+      advantage (zero-shot cloning) was never in use, and its costs (rough
+      takes, the long-input degradation this module used to document) were
+      being paid for nothing. Runs in the light venv -- no torch, no mlx.
+  "chatterbox" -- the local Apple-Silicon-native engine, still available for
+      when a cloned voice is actually wanted. A subprocess call into
+      .venv-reel; this module never imports mlx directly, so the carousel's
+      venv stays exactly as it is.
+
+Word timestamps always come from mlx_whisper in .venv-reel regardless of
+engine -- transcribing a finished wav is the same job either way.
 """
+import asyncio
 import json
 import re
 import subprocess
 from pathlib import Path
+
+import edge_tts
 
 import config
 
@@ -84,12 +95,42 @@ def probe() -> dict:
 
 
 def generate_speech(script_text: str, out_path: Path) -> Path:
-    """Writes spoken audio for `script_text`. No network once cached."""
+    """Writes spoken audio for `script_text`, via config.REEL_TTS_ENGINE."""
     if not script_text.strip():
         raise VoiceError("empty script")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    if config.REEL_TTS_ENGINE == "edge":
+        return _generate_speech_edge(script_text, out_path)
+    return _generate_speech_chatterbox(script_text, out_path)
+
+
+def _generate_speech_edge(script_text: str, out_path: Path) -> Path:
+    """Edge TTS: a cloud neural voice, no respelling -- it already reads
+    "AI" and "GPT" correctly, so Chatterbox's letter-by-letter workaround
+    (spoken_form) would only make a mature engine sound worse."""
+    mp3_path = out_path.with_suffix(".edge.mp3")
+    try:
+        asyncio.run(edge_tts.Communicate(
+            script_text, config.REEL_EDGE_TTS_VOICE,
+            rate=config.REEL_EDGE_TTS_RATE).save(str(mp3_path)))
+    except Exception as exc:  # noqa: BLE001 -- network/service errors, all fatal here
+        raise VoiceError(f"edge-tts failed: {exc}") from exc
+    if not mp3_path.exists() or mp3_path.stat().st_size == 0:
+        raise VoiceError(f"edge-tts produced no audio for {out_path.name}")
+    result = subprocess.run(
+        ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+         "-i", str(mp3_path), "-c:a", "pcm_s16le", str(out_path)],
+        capture_output=True, text=True, timeout=120)
+    mp3_path.unlink(missing_ok=True)
+    if result.returncode != 0:
+        raise VoiceError(f"mp3->wav failed: {result.stderr.strip()[-300:]}")
+    return _retime(out_path)
+
+
+def _generate_speech_chatterbox(script_text: str, out_path: Path) -> Path:
+    """Writes spoken audio for `script_text`. No network once cached."""
     # The engine gets the respelled text; everything downstream keeps the original.
     script_text = spoken_form(script_text)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
     prefix = out_path.with_suffix("")
 
     reference = ""

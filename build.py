@@ -134,16 +134,22 @@ def gather_visuals(beats: list, log, day_dir: Path) -> tuple:
             # other. Before this, every non-item beat took generic mood
             # footage and the author's query was ignored -- which is how a
             # flat-tire reel opened on aerial clouds.
+            #
+            # `tier` used to be hardcoded GENERIC regardless of whether
+            # _authored_shots actually supplied the shot, which under-reported
+            # an ILLUSTRATIVE hook/CTA as GENERIC in the manifest.
             query = beat.get("query", "")
-            shots = []
+            shots, tier = [], config.TIER_GENERIC
             if query:
                 shots = visuals._authored_shots(query, beat["role"], 1, seen, log)
-                if not shots:
+                if shots:
+                    tier = config.TIER_ILLUSTRATIVE
+                else:
                     log(f"      (nothing matched '{query}' for the "
                         f"{beat['role']}; using mood footage)")
             shots = shots or visuals.generic(1, seen, log)
             report.append({"rank": 0, "name": beat["role"],
-                           "tier": config.TIER_GENERIC,
+                           "tier": tier,
                            "shots": [{"file": Path(s.path).name,
                                       "subject": s.subject, "tier": s.tier,
                                       "note": s.note, **s.credit}
@@ -304,7 +310,8 @@ def build(plan: dict, day_dir: Path, log, tag: str = "reel") -> dict:
                      if beat["role"] == "item"]
     credits = credit_lines(report) if config.CREDITS_CARD else []
 
-    pages = videocomposite.plan_captions(timed, duration, fallback_text=script)
+    pages = videocomposite.plan_captions(timed, duration, fallback_text=script,
+                                         beat_spans=spans)
     videocomposite.write_srt(pages, day_dir / f"{tag}.srt")
     frames_dir = day_dir / f"{tag}_frames"
     # "STEP 3" for a tutorial, "NO. 3" for a countdown.

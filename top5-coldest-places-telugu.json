@@ -1,0 +1,57 @@
+{
+  "format": "countdown",
+  "topic": "Top 5 Coldest Places on Earth (Telugu)",
+  "sources_note": "Telugu-language pilot. Facts verified via web research (Wikipedia, WorldAtlas, Mental Floss). Item names kept in English internally for Wikidata/Pexels matching.",
+  "intro": {
+    "on_screen_text": "భూమిపై అత్యంత శీతల ప్రదేశాలు",
+    "voiceover": "మీరు ఎప్పుడూ వినని, భూమిపై అత్యంత చల్లని ప్రదేశాల గురించి కొన్ని ఆశ్చర్యకరమైన నిజాలు తెలుసుకుందాం.",
+    "pexels_query": "snow frozen landscape aerial"
+  },
+  "items": [
+    {
+      "rank": 5,
+      "name": "Rogers Pass, Montana",
+      "on_screen_text": "రోజర్స్ పాస్, మోంటానా",
+      "voiceover": "5. అమెరికాలోని రోజర్స్ పాస్‌లో, 1954లో -56.5°C ఉష్ణోగ్రత నమోదైంది, ఇది అమెరికాలో ఇప్పటివరకు రికార్డయిన అత్యంత చలి!",
+      "depictable": true,
+      "pexels_query": "frozen mountain snow winter USA"
+    },
+    {
+      "rank": 4,
+      "name": "International Falls",
+      "on_screen_text": "ఇంటర్నేషనల్ ఫాల్స్, USA",
+      "voiceover": "4. అమెరికాలోని ఇంటర్నేషనల్ ఫాల్స్‌ను 'ది ఐస్‌బాక్స్ ఆఫ్ ది నేషన్' అని పిలుస్తారు, ఇది అమెరికాలో అత్యంత శీతల సగటు శీతాకాల ఉష్ణోగ్రతలకు ప్రసిద్ధి.",
+      "depictable": true,
+      "pexels_query": "frozen lake winter forest snow"
+    },
+    {
+      "rank": 3,
+      "name": "Verkhoyansk",
+      "on_screen_text": "వెర్ఖోయాన్స్క్, రష్యా",
+      "voiceover": "3. రష్యాలోని వెర్ఖోయాన్స్క్‌లో -67.7°C చలి నమోదైంది, కానీ ఆశ్చర్యకరంగా, వేసవిలో +37°C వరకు వేడి పెరుగుతుంది, అంటే 105 డిగ్రీల తేడా!",
+      "depictable": true,
+      "pexels_query": "Siberia frozen village winter snow"
+    },
+    {
+      "rank": 2,
+      "name": "Oymyakon",
+      "on_screen_text": "ఓయ్మ్యాకాన్, రష్యా",
+      "voiceover": "2. భూమిపై శాశ్వతంగా నివాసం ఉండే అత్యంత శీతల ప్రదేశం రష్యాలోని ఓయ్మ్యాకాన్. ఇక్కడ పెన్నులలో ఇంకు గడ్డకడుతుంది, కనురెప్పలు క్షణాల్లో స్తంభిస్తాయి, మరియు కార్ ఇంజిన్‌లను రాత్రంతా ఆపకుండా ఉంచుతారు!",
+      "depictable": true,
+      "pexels_query": "Siberia extreme cold frozen village"
+    },
+    {
+      "rank": 1,
+      "name": "Vostok Station",
+      "on_screen_text": "వోస్టాక్ స్టేషన్, అంటార్కిటికా",
+      "voiceover": "1. అంటార్కిటికాలోని వోస్టాక్ స్టేషన్‌లో, భూమిపై ఇప్పటివరకు నమోదైన అత్యంత తక్కువ ఉష్ణోగ్రత -89.2°C, ఇక్కడ శాశ్వత నివాసులు ఎవరూ ఉండరు, కేవలం శాస్త్రవేత్తలు మాత్రమే.",
+      "depictable": true,
+      "pexels_query": "Antarctica research station snow ice"
+    }
+  ],
+  "outro": {
+    "on_screen_text": "చలి ఎక్కువగా అనిపించే వారికి,\nఈ వీడియోని షేర్ చేయండి!",
+    "voiceover": "చలిని తట్టుకోలేని మీ స్నేహితులకు లేదా బంధువులకు ఈ వీడియోని తప్పకుండా షేర్ చేయండి.",
+    "pexels_query": "snowy mountain landscape winter"
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "format": "countdown",
+  "topic": "Top 10 Most Beautiful Places (Telugu)",
+  "sources_note": "Telugu-language pilot. Item names kept in English internally for Wikidata/Pexels matching; voiceover and captions are Telugu, written by Gemini and reviewed/approved by a Telugu reader.",
+  "intro": {
+    "on_screen_text": "ప్రపంచంలోని టాప్ 10 అందమైన ప్రదేశాలు",
+    "voiceover": "ప్రపంచంలోని టాప్ 10 అత్యంత అందమైన ప్రదేశాల కౌంట్‌డౌన్‌కు స్వాగతం!",
+    "pexels_query": "beautiful travel destinations aerial"
+  },
+  "items": [
+    {
+      "rank": 10,
+      "name": "Santorini",
+      "on_screen_text": "శాంటోరిని, గ్రీస్",
+      "voiceover": "10. అగ్నిపర్వత ద్వీపంలోని తెల్లటి ఇళ్ళు, నీలి రంగు చర్చిలతో శాంటోరిని చాలా ప్రసిద్ధి.",
+      "depictable": true,
+      "pexels_query": "Santorini Greece aerial"
+    },
+    {
+      "rank": 9,
+      "name": "Bora Bora",
+      "on_screen_text": "బోరా బోరా",
+      "voiceover": "9. బోరా బోరా టర్కోయిస్ సరస్సులు, ఓవర్‌వాటర్ బంగ్లాలకు పేరుగాంచిన ఫ్రెంచ్ పాలినేషియన్ ద్వీపం.",
+      "depictable": true,
+      "pexels_query": "Bora Bora aerial lagoon"
+    },
+    {
+      "rank": 8,
+      "name": "Machu Picchu",
+      "on_screen_text": "మాచు పిచ్చు, పెరూ",
+      "voiceover": "8. మాచు పిచ్చు ఆండీస్ పర్వతాలలో ఎత్తులో ఉన్న పురాతన ఇంకా కోట.",
+      "depictable": true,
+      "pexels_query": "Machu Picchu Peru ruins"
+    },
+    {
+      "rank": 7,
+      "name": "Banff National Park",
+      "on_screen_text": "బాన్ఫ్ నేషనల్ పార్క్",
+      "voiceover": "7. బాన్ఫ్ నేషనల్ పార్క్ టర్కోయిస్ హిమానీనద సరస్సులు, మంచుతో కప్పబడిన రాకీ పర్వతాలకు ప్రసిద్ధి.",
+      "depictable": true,
+      "pexels_query": "Banff National Park mountains lake"
+    },
+    {
+      "rank": 6,
+      "name": "Kyoto",
+      "on_screen_text": "క్యోటో, జపాన్",
+      "voiceover": "6. జపాన్ మాజీ రాజధాని క్యోటో పురాతన దేవాలయాలు, పుణ్యక్షేత్రాలకు ప్రసిద్ధి చెందింది.",
+      "depictable": true,
+      "pexels_query": "Kyoto Japan temple"
+    },
+    {
+      "rank": 5,
+      "name": "Venice",
+      "on_screen_text": "వెనిస్, ఇటలీ",
+      "voiceover": "5. వెనిస్ కాలువలపై నిర్మించిన నగరం, గోండోలా పడవలకు చాలా ప్రసిద్ధి.",
+      "depictable": true,
+      "pexels_query": "Venice Italy canal gondola"
+    },
+    {
+      "rank": 4,
+      "name": "Grand Canyon",
+      "on_screen_text": "గ్రాండ్ కాన్యన్, USA",
+      "voiceover": "4. అరిజోనాలోని గ్రాండ్ కాన్యన్ ప్రపంచంలోనే అతిపెద్ద, లోతైన లోయలలో ఒకటి.",
+      "depictable": true,
+      "pexels_query": "Grand Canyon aerial"
+    },
+    {
+      "rank": 3,
+      "name": "Maldives",
+      "on_screen_text": "మాల్దీవులు",
+      "voiceover": "3. మాల్దీవులు తెల్లటి ఇసుక బీచ్‌లు, పగడపు దిబ్బలకు ప్రసిద్ధి చెందిన ద్వీప దేశం.",
+      "depictable": true,
+      "pexels_query": "Maldives beach aerial"
+    },
+    {
+      "rank": 2,
+      "name": "Swiss Alps",
+      "on_screen_text": "స్విస్ ఆల్ప్స్",
+      "voiceover": "2. స్విస్ ఆల్ప్స్ స్కైయింగ్, అద్భుతమైన ఆల్పైన్ దృశ్యాలకు ప్రసిద్ధి చెందిన పర్వత శ్రేణి.",
+      "depictable": true,
+      "pexels_query": "Swiss Alps mountains snow"
+    },
+    {
+      "rank": 1,
+      "name": "Iceland",
+      "on_screen_text": "ఐస్‌లాండ్",
+      "voiceover": "1. ఐస్‌లాండ్ హిమానీనదాలు, అగ్నిపర్వతాలు, గీజర్‌లు, ఉత్తర కాంతికి చాలా ప్రసిద్ధి.",
+      "depictable": true,
+      "pexels_query": "Iceland glacier aurora"
+    }
+  ],
+  "outro": {
+    "on_screen_text": "మీకు నచ్చిన ప్రదేశం ఏది?కామెంట్లలో చెప్పండి!",
+    "voiceover": "ఈ ప్రదేశాలలో మీకు ఏది బాగా నచ్చిందో కామెంట్లలో తప్పకుండా చెప్పండి!",
+    "pexels_query": "beautiful nature landscape"
+  }
+}

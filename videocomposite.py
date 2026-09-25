@@ -29,6 +29,7 @@ import difflib
 import os
 import re
 import subprocess
+import unicodedata
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -70,7 +71,18 @@ def _font(size: int) -> ImageFont.FreeTypeFont:
 # --- timing -----------------------------------------------------------------
 
 def _norm(token: str) -> str:
-    return re.sub(r"[^a-z0-9]", "", token.lower())
+    """Strip punctuation for the heard-vs-written match, keeping any script.
+
+    [^a-z0-9] silently reduced every Telugu (or any non-Latin) word to an
+    empty string -- both "heard" and "written" became lists of blanks, so
+    retime_script's SequenceMatcher had nothing to align and fell back to
+    even interpolation for the whole line. Stripping by Unicode category
+    (punctuation only) rather than an ASCII allow-list keeps a word's letters
+    AND its combining marks intact -- \\w alone would still have dropped
+    Telugu's vowel signs, since those are category Mn, not word characters.
+    """
+    return "".join(ch for ch in token.lower()
+                   if not unicodedata.category(ch).startswith("P"))
 
 
 def retime_script(script: str, words: list) -> list:
@@ -132,12 +144,24 @@ def retime_script(script: str, words: list) -> list:
             for i, token in enumerate(tokens)]
 
 
-def plan_captions(words: list, duration: float, fallback_text: str = "") -> list:
+def plan_captions(words: list, duration: float, fallback_text: str = "",
+                  beat_spans: list | None = None) -> list:
     """Caption pages as [(start, end, [word dicts])].
 
     Pages break on sentence ends as well as on length: chunking purely by count
     puts a full stop mid-caption, which reads as a mistake however well the
     timing lines up.
+
+    `beat_spans` (each beat's exact [start, end), from narrate.py -- exact
+    because each beat is voiced as its own clip) forces an additional break at
+    every beat boundary. Without it, a numbered item's own rank prefix ("6.")
+    is one token that already ends in a period -- the grouping loop closes it
+    as its own one-word page, and the very next step, built to fold a
+    one-word TAIL like "today." backwards so it does not flash on its own,
+    folded this LEADING "6." into the previous item's last caption instead,
+    showing item 7's tail and item 6's rank on the same card. A beat boundary
+    must never be crossed by a fold or a length/punctuation grouping choice,
+    whatever the words on either side happen to look like.
     """
     size = max(config.REEL_CAPTION_WORDS, 1)
     if not words:
@@ -150,28 +174,60 @@ def plan_captions(words: list, duration: float, fallback_text: str = "") -> list
                  [{"word": w, "start": i * span, "end": (i + 1) * span} for w in g])
                 for i, g in enumerate(groups)]
 
+    def _beat_of(t: float) -> int:
+        for index, (start, end) in enumerate(beat_spans or []):
+            if t < end or index == len(beat_spans) - 1:
+                return index
+        return -1
+
     groups, group = [], []
+    current_beat = _beat_of(float(words[0]["start"])) if beat_spans else -1
     for word in words:
+        word_beat = _beat_of(float(word["start"])) if beat_spans else -1
+        if group and word_beat != current_beat:
+            groups.append(group)
+            group = []
+        current_beat = word_beat
         group.append(word)
         if len(group) >= size or str(word["word"]).rstrip().endswith((".", "!", "?")):
             groups.append(group)
             group = []
     if group:
         groups.append(group)
-    # A one-word tail ("today.") flashes like a stutter; fold it backwards.
-    folded = []
-    for candidate in groups:
-        if len(candidate) == 1 and folded and len(folded[-1]) <= size:
-            folded[-1].extend(candidate)
-        else:
-            folded.append(candidate)
+    # A one-word group ("today." at the end of an utterance, or a numbered
+    # item's own rank prefix "6." at the start of one -- both end in a period
+    # and close a group immediately) flashes like a stutter on its own. Fold
+    # it into whichever NEIGHBOUR is in the same beat: backward for a trailing
+    # word (the original case), forward for a leading one like a rank prefix,
+    # which has no earlier group in its own beat to join. Never fold across a
+    # beat boundary either direction (see docstring).
+    index, folded = 0, []
+    while index < len(groups):
+        candidate = groups[index]
+        if len(candidate) == 1:
+            cand_beat = _beat_of(float(candidate[0]["start"]))
+            if (folded and len(folded[-1]) <= size and
+                    _beat_of(float(folded[-1][-1]["start"])) == cand_beat):
+                folded[-1].extend(candidate)
+                index += 1
+                continue
+            if (index + 1 < len(groups) and
+                    _beat_of(float(groups[index + 1][0]["start"])) == cand_beat):
+                groups[index + 1] = candidate + groups[index + 1]
+                index += 1
+                continue
+        folded.append(candidate)
+        index += 1
 
     pages = [(float(g[0]["start"]), float(g[-1]["end"]), g) for g in folded]
-    # Close short gaps so a page does not blink out between phrases.
+    # Close short gaps so a page does not blink out between phrases -- except
+    # a beat-boundary gap, which must stay a hard cut.
     for index in range(len(pages) - 1):
         start, end, group = pages[index]
-        if 0 < pages[index + 1][0] - end < 0.35:
-            pages[index] = (start, pages[index + 1][0], group)
+        next_start = pages[index + 1][0]
+        same_beat = (_beat_of(end) == _beat_of(next_start)) if beat_spans else True
+        if same_beat and 0 < next_start - end < 0.35:
+            pages[index] = (start, next_start, group)
     return pages
 
 
@@ -584,7 +640,12 @@ def render_caption_track(pages: list, duration: float, out_dir: Path,
         canvas = Image.new("RGBA", (config.REEL_W, config.REEL_H), (0, 0, 0, 0))
         draw = ImageDraw.Draw(canvas)
         _scrim(canvas)
-        if config.REEL_SHOW_HANDLE and config.INSTAGRAM_HANDLE:
+        # The quiet handle and the follow card each draw their own copy of the
+        # handle -- "runs the whole way and the follow card closes it out"
+        # means a HANDOFF, not both on screen together. Left unconditional,
+        # the closing seconds showed @handle twice, one straight under the
+        # other. Suppressing the quiet one once the card takes over is the fix.
+        if config.REEL_SHOW_HANDLE and config.INSTAGRAM_HANDLE and card < 0:
             # Sits lower than the old label so it clears the caption band
             # entirely, and carries a faint shadow instead of a plate: enough
             # to stay legible over white footage without announcing itself.
@@ -603,7 +664,15 @@ def render_caption_track(pages: list, duration: float, out_dir: Path,
             _draw_rank_card(draw, rank, _caption_for(items, rank), reveal / 12,
                             label=rank_label)
         if page_index >= 0:
-            _draw_page(draw, [w["word"] for w in pages[page_index][2]], active, centre_y)
+            # The follow card occupies the same lower band the caption does
+            # (centre_y sits only ~30px from the card's own centre) -- the CTA
+            # line is still being read while the card scales in, so the fix is
+            # to lift the caption clear of the card's footprint for those
+            # frames rather than hide it, which would silence the last words
+            # for a muted viewer.
+            page_centre_y = int(config.REEL_H * 0.60) if card >= 0 else centre_y
+            _draw_page(draw, [w["word"] for w in pages[page_index][2]], active,
+                      page_centre_y)
         if card >= 0:
             _draw_follow_card(draw, card / 12)
         if credits_phase >= 0:
@@ -705,6 +774,20 @@ def build_segments_multi(beat_spans: list, beat_clips: list,
 
     In-points advance per clip, so a clip reused later in the reel resumes
     where it left off instead of replaying the same opening frames.
+
+    Every `take` here MUST fit inside the clip's own `clip_durations[clip]`.
+    The previous version divided a beat's length evenly across its clips
+    (length / shots) and only adjusted the in-point, never the take itself --
+    for a long beat (a "did you know" fact runs 14-15s) split across two
+    kenburns clips (a fixed 5.0s each), that asked ffmpeg to trim 7.5s out of
+    a 5.0s source. ffmpeg trim silently truncates rather than erroring, so
+    the actual video track came out several seconds SHORTER than every beat
+    span assumed -- with no error anywhere. The caption/rank-chip track is
+    built from the (correct) beat spans directly and never saw the shortfall,
+    so by a few beats in, the video had visibly caught up past where the
+    captions still thought it was: a later item's real footage played under
+    an earlier item's rank card. Invisible on short beats (every clip has
+    room), which is exactly why the first three Telugu builds never hit it.
     """
     segments = []
     used_from = {}
@@ -720,18 +803,34 @@ def build_segments_multi(beat_spans: list, beat_clips: list,
             previous = segments[-1]
             segments[-1] = (previous[0], previous[1], round(previous[2] + length, 2))
             continue
-        shots = max(1, min(len(clips), int(length // config.REEL_MIN_SHOT) or 1))
-        share = length / shots
-        for index in range(shots):
-            clip = clips[index % len(clips)]
-            take = share if index < shots - 1 else length - share * (shots - 1)
+        remaining, cycle, stall_guard = length, 0, 0
+        while remaining > 0.01:
+            clip = clips[cycle % len(clips)]
             available = clip_durations[clip]
             offset = used_from.get(clip, 0.0)
-            if offset + take > available:
-                offset = 0.0          # wrap rather than run off the end
-            in_point = round(min(offset, max(available - take, 0.0)), 2)
-            segments.append((clip, in_point, round(take, 2)))
-            used_from[clip] = in_point + take
+            if offset >= available - 0.01:
+                offset = 0.0  # this clip is exhausted; wrap to its start
+            room = max(available - offset, 0.0)
+            if room <= 0.01:
+                # A clip shorter than any usable take, even from its own
+                # start -- skip it rather than emit a zero-length segment.
+                cycle += 1
+                stall_guard += 1
+                if stall_guard > len(clips) * 4:
+                    break  # every clip is unusably short; stop, don't hang
+                continue
+            take = min(remaining, room, config.REEL_MAX_SHOT)
+            # A would-be sliver after this take reads as a stutter cut, same
+            # rule as build_segments: absorb it into this take instead,
+            # capped at what the clip can actually still supply.
+            if 0 < remaining - take < config.REEL_MIN_SHOT:
+                take = min(remaining, room)
+            take = round(take, 2)
+            segments.append((clip, round(offset, 2), take))
+            used_from[clip] = offset + take
+            remaining -= take
+            cycle += 1
+            stall_guard = 0
     if not segments:
         raise CompositeError("no segments planned")
 

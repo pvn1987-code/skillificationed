@@ -32,16 +32,22 @@ import hashlib
 import json
 import re
 import subprocess
+import unicodedata
 from pathlib import Path
 
 import config
 import videocomposite
 import voiceclone
 
-# Chatterbox reads at roughly 3 words a second. A generation far outside this
-# band has gone wrong -- most often by saying something twice, which lands near
-# double.
-_WORDS_PER_SECOND = 3.0
+# Chatterbox read at roughly 3 words a second; Edge's Christopher voice, at
+# the natural pace this project wants (no rushed narration -- trim the script
+# before speeding up the read), measured 1.7-3.1 wps across the flat-tire
+# beats, clustered around 2.3-2.5. 3.0 flagged a completely clean, unrepeated
+# take (b01: 11 words in 6.6s) as "questionable" purely for reading slower
+# than Chatterbox did -- the audio was fine, the baseline was wrong. A
+# generation far outside THIS band has gone wrong, most often by saying
+# something twice, which lands near double.
+_WORDS_PER_SECOND = 2.2
 _MIN_RATIO, _MAX_RATIO = 0.5, 1.7
 # A breath between beats. It also gives each rank card a clean frame to land on
 # instead of appearing mid-syllable.
@@ -53,7 +59,22 @@ class NarrationError(RuntimeError):
 
 
 def _normalise(text: str) -> list:
-    return [w for w in re.split(r"\W+", text.lower()) if w]
+    """Words for the repeated-phrase check, any script.
+
+    \\W+ splits on RUNS of non-word characters -- fine for Latin text, but
+    Telugu's vowel signs are category Mn (not \\w), so a word like
+    "శాంటోరిని" fragmented into single-consonant pieces at every combining
+    mark, breaking the whole check for any non-Latin script. Splitting on
+    whitespace and stripping only punctuation (by Unicode category) keeps a
+    word's combining marks attached to it.
+    """
+    words = []
+    for token in text.lower().split():
+        cleaned = "".join(ch for ch in token
+                          if not unicodedata.category(ch).startswith("P"))
+        if cleaned:
+            words.append(cleaned)
+    return words
 
 
 def _repeats(script: str, heard: list, size: int = 4) -> str:
@@ -81,9 +102,19 @@ def _repeats(script: str, heard: list, size: int = 4) -> str:
 
 
 def _take_key(line: str) -> str:
-    """Identity of a take: its words and the voice settings that shaped it."""
+    """Identity of a take: its words and the voice settings that shaped it.
+
+    Must include EVERY setting either engine reads. Missing REEL_TTS_ENGINE
+    here would mean switching engines does not change the key, so a rebuild
+    after moving from Chatterbox to Edge would silently reuse the old
+    Chatterbox wav under "(reusing voiced take)" instead of actually
+    re-synthesising -- exactly the kind of stale-cache bug this key exists
+    to prevent, just aimed at the wrong axis.
+    """
     raw = "|".join(str(x) for x in (
-        line, config.REEL_TTS_MODEL, config.REEL_VOICE_SAMPLE,
+        line, config.REEL_TTS_ENGINE,
+        config.REEL_EDGE_TTS_VOICE, config.REEL_EDGE_TTS_RATE,
+        config.REEL_TTS_MODEL, config.REEL_VOICE_SAMPLE,
         config.REEL_EXAGGERATION, config.REEL_CFG_WEIGHT,
         config.REEL_TEMPERATURE, config.REEL_SPEECH_SPEED))
     return hashlib.sha256(raw.encode()).hexdigest()[:16]

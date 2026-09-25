@@ -134,10 +134,22 @@ HIGHLIGHT_SCALE = float(os.getenv("HIGHLIGHT_SCALE", "1.08"))
 SAFE_BOTTOM = int(os.getenv("SAFE_BOTTOM", "360"))
 
 # --- Voice -------------------------------------------------------------------
-# Same local Chatterbox + mlx_whisper worker as the news pipeline: expressive,
-# clonable, and free. Narrated shorts measurably out-retain silent ones, and
-# the delivery controls below are the difference between narration with stakes
-# and a newsreader reading a phone book.
+# Two engines. Chatterbox (local, mlx_whisper worker) can clone a voice from a
+# reference clip, but VOICE_SAMPLE has never actually been set here -- so it
+# was paying Chatterbox's costs (occasional rough takes, the long-input
+# degradation narrate.py's docstring documents) for a cloning capability
+# nothing was using. Edge TTS (Microsoft's free cloud neural voices, via the
+# `edge-tts` package) is the default instead: mature, consistently clean, and
+# needs none of the heavy REEL_VENV torch/mlx stack for synthesis itself --
+# though that venv is still required for Whisper caption timing either way.
+# Chosen 2026-09-24 after listening to three candidates side by side.
+TTS_ENGINE = os.getenv("TTS_ENGINE", "edge").strip().lower()
+EDGE_TTS_VOICE = os.getenv("EDGE_TTS_VOICE", "en-US-ChristopherNeural").strip()
+# Natural pace, no rate boost -- "I don't want a rushed-speaking video... it
+# should not be pushy." If a script runs long, the fix is fewer beats, never a
+# faster read. Leave at "+0%" unless explicitly asked to change the pace.
+EDGE_TTS_RATE = os.getenv("EDGE_TTS_RATE", "+0%").strip()
+
 TTS_MODEL = os.getenv("TTS_MODEL", "mlx-community/chatterbox-fp16").strip()
 VOICE_SAMPLE = os.getenv("VOICE_SAMPLE", "").strip()
 EXAGGERATION = float(os.getenv("EXAGGERATION", "0.7"))
@@ -146,7 +158,8 @@ TEMPERATURE = float(os.getenv("TEMPERATURE", "0.8"))
 # Chatterbox reads at ~190wpm and ignores its own speed argument, so this is an
 # ffmpeg atempo stretch on the rendered wav. A countdown wants more attack than
 # the news read, so it sits slightly faster. Below ~0.85 atempo smears
-# consonants; above ~1.05 the item names stop landing.
+# consonants; above ~1.05 the item names stop landing. Applies to either
+# engine's output, but leave it at 1.0 for Edge -- see EDGE_TTS_RATE above.
 SPEECH_SPEED = float(os.getenv("SPEECH_SPEED", "1.0"))
 ASR_BACKEND = os.getenv("ASR_BACKEND", "mlx_whisper").strip()
 ASR_MODEL = os.getenv("ASR_MODEL", "mlx-community/whisper-large-v3-turbo").strip()
@@ -278,6 +291,9 @@ REEL_HANDLE_PLATE = os.getenv("REEL_HANDLE_PLATE", "false").strip().lower() == "
 INSTAGRAM_HANDLE = BRAND_HANDLE
 REEL_END_CARD_SECONDS = CTA_SECONDS
 REEL_FOLLOW_TEXT = CTA_CARD_TEXT
+REEL_TTS_ENGINE = TTS_ENGINE
+REEL_EDGE_TTS_VOICE = EDGE_TTS_VOICE
+REEL_EDGE_TTS_RATE = EDGE_TTS_RATE
 REEL_TTS_MODEL = TTS_MODEL
 REEL_VOICE_SAMPLE = VOICE_SAMPLE
 REEL_EXAGGERATION = EXAGGERATION

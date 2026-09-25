@@ -335,6 +335,33 @@ spends quota. A cached plan still builds with no network to Google at all.
 
 200 searches/hour. One search per phrasing per run, cached in-process. Wait.
 
+### A slug match hides content nobody would want on screen
+
+The slug/word gate proves a clip matches the QUERY's words; it says nothing
+about whether the clip is otherwise appropriate. `howto-flat-tire.json` rank 1
+("Pull over safely", query `driver stopped car road`) matched a stock clip
+titled, literally, *"a boy pretending to drive a car"* — thematically on-topic
+by the gate's own rules, and wrong content for a driving-safety tutorial. Caught
+2026-09-24 by watching the actual composited frame, not by any automated check
+— nothing in the pipeline screens for this. Fixed by pinning known-good ids
+(`pexels_ids: [27374367, 29142341]`), the same mechanism as a bad
+"jack vs. lift" ambiguity. **Watch the actual frames of anything with people in
+it before trusting the tier label.**
+
+### Follow card collided with the caption band and doubled the handle
+
+`videocomposite.py`'s closing follow card sits at `REEL_H - SAFE_BOTTOM - 150`
+(≈1410px); the caption band sits at `REEL_H * CAPTION_BAND` (≈1382px) — 28px
+apart, so the CTA line's last words rendered directly through the "SEND THIS"
+card. The persistent quiet handle was also never suppressed once the follow
+card drew its own handle underneath the card, so `@handle` appeared twice
+stacked. Fixed 2026-09-24: the quiet handle now only draws while `card < 0`,
+and the caption is lifted to `REEL_H * 0.60` for the frames the follow card is
+on screen. **This bug is specific to howto/countdown reels with both karaoke
+captions and the follow card active in the closing seconds — check the other
+project's `videocomposite.py` if it ever grows a follow card too**, since the
+two files are forked copies and this fix was applied only here.
+
 ---
 
 ## 7. Known gaps
