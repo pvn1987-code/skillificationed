@@ -138,6 +138,48 @@ ports — over landscape nouns like vineyards, mountains or coastline.
 
 Tiers are recorded per shot in `reel.json` under `footage[].tier`.
 
+### YouTube: when the subject is real but too specific for any stock library
+
+Pexels and Commons cover global, generic subjects well; they have nothing for
+a named local subject like a specific temple idol or a specific pandal. That
+footage exists constantly on YouTube — almost always under YouTube's default
+Standard license, which permits none of this. A title reading "FREE TO USE" or
+"NO COPYRIGHT" is not a license and was not treated as one: every self-declared
+claim like that, checked in September 2026, carried the Standard license when
+actually queried, and would have been silent copyright infringement if
+trusted. Exactly one real Creative Commons match turned up in that same
+search batch — confirming `sources/youtube.py`'s check works, and that
+genuine matches for a hyper-specific local subject are rare, not that the
+check is broken.
+
+`sources/youtube.py` has exactly one door in: `fetch_by_id`, mirroring
+`pinned_shots` — a person watched the actual video, chose the id AND the
+in-video timestamp (there is no way to guess a good moment automatically),
+and is accountable for both, same as a Pexels pin. It refuses, loudly,
+anything that is not verifiably Creative Commons by asking YouTube directly
+for that video's own license flag — never by trusting a title.
+
+In a spec, per item:
+```json
+"youtube_ids": [{"id": "VxiE9Fnv8Wc", "start": 12, "seconds": 6}]
+```
+`start`/`seconds` default to 0/6 if omitted. Recorded as ILLUSTRATIVE, same as
+a Pexels pin — a human's accountable choice, not an automatically-verified
+EXACT match. Always carries a credits-card line: CC BY requires attribution,
+so `attribution_required` is hardcoded true in the credit dict, unlike
+Commons' occasional public-domain case.
+
+**Two ways to find a candidate id, neither of which is itself trustworthy:**
+- `sources.youtube.search(query)` — free, no key, scrapes YouTube's own
+  search page via `yt-dlp`. A discovery aid ONLY: watch the result yourself
+  before ever pinning its id.
+- `sources.youtube.search_api(query)` — needs `YOUTUBE_API_KEY` in `.env` (a
+  free Google Cloud Console API key — no OAuth, no app review; NOT the same
+  credential the publishing side would eventually need). Uses YouTube Data
+  API's real `videoLicense=creativeCommon` server-side filter, which is
+  reliable in a way scraping titles never can be. Returns `[]` with no key
+  set rather than erroring, so callers can try it first unconditionally.
+
 ### Why the gate must stay hard
 
 Pexels never returns an empty result set. Asked for "Elon Musk" it reports 1,326

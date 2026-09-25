@@ -80,6 +80,7 @@ def make_beats(plan: dict) -> list:
                       "query": item.get("query", ""),
                       "depictable": bool(item.get("depictable")),
                       "pinned": item.get("pinned") or [],
+                      "youtube_ids": item.get("youtube_ids") or [],
                       "stills": bool(item.get("stills")),
                       "min_seconds": float(item.get("min_seconds") or 0)})
         if position + 1 == tease_after:
@@ -117,7 +118,8 @@ def gather_visuals(beats: list, log, day_dir: Path) -> tuple:
                                      day_dir, query=beat.get("query", ""),
                                      depictable=beat.get("depictable", False),
                                      pinned=beat.get("pinned") or None,
-                                     stills=beat.get("stills", False))
+                                     stills=beat.get("stills", False),
+                                     youtube_ids=beat.get("youtube_ids") or None)
             shots = found.shots
             report.append({"rank": beat["rank"], "name": beat["name"],
                            "tier": found.tier,

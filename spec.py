@@ -131,6 +131,10 @@ def load_dict(raw: dict, source: str = "spec") -> dict:
             # because it is the only input backed by someone's eyes.
             "pinned": [str(v).strip() for v in (entry.get("pexels_ids") or [])
                        if str(v).strip()],
+            # Same idea, for a specific named subject no stock library has:
+            # a YouTube id a person watched and verified as actually Creative
+            # Commons licensed, e.g. [{"id": "...", "start": 12, "seconds": 6}].
+            "youtube_ids": entry.get("youtube_ids") or [],
             # Photographs instead of clips for this step. Set per item, or for
             # the whole spec with a top-level "stills": true.
             "stills": bool(entry.get("stills", raw.get("stills", False))),

@@ -28,7 +28,7 @@ import config
 import entities
 import kenburns
 import screening
-from sources import commons, stock
+from sources import commons, stock, youtube
 
 
 @dataclass
@@ -242,6 +242,38 @@ def pinned_shots(ids: list, name: str, wanted: int, seen: set, log) -> list:
     return shots
 
 
+def youtube_shots(entries: list, name: str, wanted: int, log) -> list:
+    """A person's own YouTube pick, same accountability as pinned_shots.
+
+    Real footage of a specific named subject (a particular temple's idol, a
+    particular festival) essentially does not exist as licensed stock -- but
+    it exists on YouTube constantly, almost always under YouTube's default
+    Standard license, which permits none of this. Each entry here is
+    `{"id": ..., "start": seconds, "seconds": length}` (start/seconds
+    optional); sources.youtube.fetch_by_id refuses anything that is not
+    actually, verifiably Creative Commons, whatever the title claims.
+    """
+    shots = []
+    for entry in entries:
+        if isinstance(entry, str):
+            entry = {"id": entry}
+        video_id = entry.get("id", "")
+        try:
+            path, credit = youtube.fetch_by_id(
+                video_id, start_seconds=float(entry.get("start", 0.0)),
+                clip_seconds=float(entry.get("seconds", 6.0)))
+        except youtube.YouTubeError as exc:
+            log(f"      ! youtube {video_id}: {exc}")
+            continue
+        shots.append(Shot(path=path, credit=credit,
+                          tier=config.TIER_ILLUSTRATIVE,
+                          subject=name, note="pinned from youtube (CC-verified)"))
+        log(f"      youtube: {video_id} ({credit.get('author', '')})")
+        if len(shots) >= wanted:
+            break
+    return shots
+
+
 def _authored_shots(query: str, name: str, wanted: int, seen: set, log) -> list:
     """The shots a person asked for, gated on their own words.
 
@@ -293,7 +325,8 @@ def for_item(name: str, kind: str, seen: set, log, day_dir: Path,
              wanted: int | None = None, query: str = "",
              depictable: bool = False,
              pinned: list | None = None,
-             stills: bool = False) -> ItemVisuals:
+             stills: bool = False,
+             youtube_ids: list | None = None) -> ItemVisuals:
     """Walk the ladder for one numbered item."""
     wanted = wanted or config.SHOTS_PER_ITEM
 
@@ -331,6 +364,20 @@ def for_item(name: str, kind: str, seen: set, log, day_dir: Path,
                 result.shots.append(result.shots[0])
             return result
         log(f"      ! no pinned clip resolved for {name}; falling back")
+
+    # Same trust tier as a Pexels pin -- a person watched the actual frames --
+    # for the far more common case that no stock library has the specific
+    # named subject at all. sources.youtube refuses anything not verifiably
+    # Creative Commons, so this can never silently become unlicensed footage.
+    if youtube_ids:
+        found = youtube_shots(youtube_ids, name, wanted, log)
+        if found:
+            result = ItemVisuals(name=name, shots=found[:wanted],
+                                 tier=config.TIER_ILLUSTRATIVE)
+            while len(result.shots) < wanted:
+                result.shots.append(result.shots[0])
+            return result
+        log(f"      ! no youtube clip resolved for {name}; falling back")
 
     if query and stills:
         found = _photo_shots(query, name, wanted, seen, log, day_dir)

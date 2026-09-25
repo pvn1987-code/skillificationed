@@ -16,6 +16,11 @@ load_dotenv(ROOT / ".env")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY", "").strip()
+# Optional. Unlocks sources.youtube.search_api()'s real videoLicense=
+# creativeCommon filter -- a free API key (Google Cloud Console, no OAuth, no
+# app review), not the OAuth/upload credential the publishing side would need.
+# Search still works without it (sources.youtube.search()), just less reliably.
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY", "").strip()
 # Wikimedia asks for a descriptive UA with contact details on API traffic.
 WIKI_USER_AGENT = os.getenv(
     "WIKI_USER_AGENT",
