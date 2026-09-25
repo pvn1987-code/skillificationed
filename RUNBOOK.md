@@ -338,6 +338,43 @@ text is meant to stay in the brand's display font regardless of language.
 Adding a new script (Hindi, etc.) means adding both its font file and a
 `_is_<script>()` range check the same way.
 
+### Non-English captions go blank for most of a sentence, then catch up
+
+Whisper had no language hint anywhere in the pipeline, so it auto-detected
+the spoken language from each beat's audio -- and on a short (7-9s)
+non-English clip it guesses wrong often enough to matter. A Telugu beat's
+actual transcription: `"lho munchi kovulu, protein lho peechu untai. [two
+Kannada chars] [Gujarati text] lho chakker s'thāyilu..."` -- phonetic
+nonsense mixing three scripts, sharing not one real word with the actual
+script apart from a bare rank digit. `retime_script`'s alignment (see § 4)
+had exactly that one anchor to work with; every word after it fell into the
+"no anchor" interpolation branch, which compresses forward from the last
+known anchor at ~0.14s per word rather than spreading across the beat's
+real duration -- so the whole sentence's captions collapsed into the first
+~2 seconds, then sat frozen (or blank) for the rest of the beat while the
+voice kept talking. This was present in every Telugu build from the first
+one; short beats or a viewer not scrutinising captions closely enough are
+the only reason it went uncaught for three builds.
+
+Fixed by `config.ASR_LANGUAGE`, derived from `EDGE_TTS_VOICE`'s own prefix
+("te-IN-ShrutiNeural" -> "te") so a voice switch cannot leave it stale, and
+threaded through `voiceclone.transcribe_words` -> `reel_worker.py asr
+--language` -> Whisper's own `language=` parameter. Diagnose by
+transcribing a beat directly and checking whether it comes back in the
+right SCRIPT, not just checking word count:
+```bash
+.venv-reel/bin/python reel_worker.py asr --audio output/<slug>/reel_beats/bNN.wav \
+  --out /tmp/check.json --model mlx-community/whisper-large-v3-turbo --backend mlx_whisper
+python3 -c "import json; print(json.load(open('/tmp/check.json'))['text'])"
+```
+If that comes back in the wrong script or as phonetic Latin nonsense, the
+language hint isn't reaching Whisper (check `ASR_LANGUAGE` derived correctly
+from the voice in use, or set it explicitly). Cached beat audio and
+`.words.json` survive a rebuild via `_take_key` (keyed on TTS settings only,
+not ASR settings) -- after fixing the language hint, `rm -rf
+output/<slug>/reel_beats` before rebuilding, or the stale bad transcription
+gets reused unchanged.
+
 ### Telugu script over-translates specific terms
 
 A generated Telugu script must TRANSLITERATE (keep the actual English
