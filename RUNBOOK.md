@@ -283,6 +283,21 @@ model, so the numeral burned on screen and the numeral in the voice cannot
 disagree. A supplied spec sets `verbatim`, which turns that off because your
 `voiceover` already says "Number 10."
 
+### Words-per-second is language-specific, not a universal constant
+
+`config.WORDS_PER_SECOND` drives every pre-flight duration estimate (the
+during-build log, and `plan`/`spec`'s printed word count). It is keyed off
+`config.ASR_LANGUAGE` via `WORDS_PER_SECOND_BY_LANGUAGE` -- English's 2.8 by
+default, Telugu's measured 1.45 when the configured voice is Telugu. Getting
+this wrong is exactly how the diabetes-foods spec's first draft reported
+"58s, in the target band" for a script that actually ran 109s: Telugu says
+roughly half as much per word as English does, and the estimate did not
+know that. Add an entry to that dict before trying a new language, or the
+same silent mismatch happens again. `narrate.py` keeps its own,
+more-precisely-calibrated version of this (`_WORDS_PER_SECOND_BY_LANGUAGE`)
+for the per-take quality check specifically, deliberately separate from
+this one; see its comment for why.
+
 ---
 
 ## 6. Failure modes
