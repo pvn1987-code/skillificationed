@@ -263,95 +263,13 @@ def plan_captions(words: list, duration: float, fallback_text: str = "",
     return pages
 
 
-def align_beats(beat_word_counts: list, words: list, duration: float) -> list:
-    """[(start, end)] per beat, by walking the transcript word by word.
-
-    Whisper is transcribing our own synthesised text, so the word sequence
-    matches the script -- but not always the COUNT: it merges or drops a word
-    here and there. Allocating each beat its exact count and giving the
-    remainder to the last one made any shortfall land entirely on the final
-    beat, which silently starved the CTA to a zero-length span and dropped the
-    closing card. Counts are therefore scaled to the words that actually came
-    back, so a deficit is shared out instead of falling on one beat.
-    """
-    total = sum(beat_word_counts)
-    if not words or total == 0:
-        share = duration / max(len(beat_word_counts), 1)
-        return [(i * share, (i + 1) * share) for i in range(len(beat_word_counts))]
-
-    available = len(words)
-    # Scale each beat's share to the transcript, keeping at least one word each
-    # and making the shares add up exactly.
-    scaled = [max(1, round(count * available / total)) for count in beat_word_counts]
-    drift = sum(scaled) - available
-    index = len(scaled) - 1
-    while drift > 0 and index >= 0:
-        take = min(drift, scaled[index] - 1)
-        scaled[index] -= take
-        drift -= take
-        index -= 1
-    if drift < 0:
-        scaled[-1] += -drift
-
-    spans, cursor = [], 0
-    for position, count in enumerate(scaled):
-        last = position == len(scaled) - 1
-        take = available - cursor if last else min(count, available - cursor)
-        if take <= 0:
-            # Nothing left: pin a short span at the end rather than a zero one,
-            # so the beat still earns a shot.
-            spans.append((max(duration - 0.4, 0.0), duration))
-            continue
-        chunk = words[cursor:cursor + take]
-        spans.append((float(chunk[0]["start"]), float(chunk[-1]["end"])))
-        cursor += take
-
-    # The first beat starts with the reel and the last runs to the end of the
-    # audio: trailing silence belongs to the closing card, not to nothing.
-    if spans:
-        spans[0] = (0.0, spans[0][1])
-        spans[-1] = (spans[-1][0], max(duration, spans[-1][1]))
-    return spans
-
-
 # --- sidecar subtitle files -------------------------------------------------
-
-def _ass_time(seconds: float) -> str:
-    seconds = max(seconds, 0)
-    hours, rest = divmod(seconds, 3600)
-    minutes, secs = divmod(rest, 60)
-    return f"{int(hours)}:{int(minutes):02d}:{secs:05.2f}"
-
 
 def _srt_time(seconds: float) -> str:
     seconds = max(seconds, 0)
     hours, rest = divmod(seconds, 3600)
     minutes, secs = divmod(rest, 60)
     return f"{int(hours):02d}:{int(minutes):02d}:{int(secs):02d},{int(secs % 1 * 1000):03d}"
-
-
-def write_ass(pages: list, out_path: Path) -> Path:
-    header = f"""[Script Info]
-ScriptType: v4.00+
-PlayResX: {config.REEL_W}
-PlayResY: {config.REEL_H}
-WrapStyle: 2
-ScaledBorderAndShadow: yes
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Caption,Anton,{config.REEL_CAPTION_SIZE},&H00FFFFFF,&H00FFFFFF,&H00101010,&H96000000,0,0,0,0,100,100,2,0,1,7,4,5,{_SIDE_MARGIN},{_SIDE_MARGIN},0,1
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-"""
-    lines = [header]
-    for start, end, group in pages:
-        text = " ".join(w["word"] for w in group).replace("{", "(").replace("}", ")")
-        lines.append(f"Dialogue: 1,{_ass_time(start)},{_ass_time(end)},Caption,,0,0,0,,"
-                     f"{{\\fad(60,60)}}{text.upper()}\n")
-    out_path.write_text("".join(lines))
-    return out_path
 
 
 def write_srt(pages: list, out_path: Path) -> Path:
@@ -718,87 +636,9 @@ def render_caption_track(pages: list, duration: float, out_dir: Path,
 
 # --- assembly ---------------------------------------------------------------
 
-def build_segments(beat_spans: list, clip_indices: list, clip_durations: list,
-                   duration: float) -> list:
-    """(clip index, in-point, length), cutting where the subject changes.
-
-    A beat too short to earn its own shot extends the previous one instead --
-    below about 1.6s a cut reads as a glitch. A beat that runs long is split
-    into several shots from the same clip at advancing in-points, so the visual
-    still matches the sentence but the frame keeps moving.
-    """
-    segments = []
-    last_index = len(beat_spans) - 1
-    for position, ((start, end), clip) in enumerate(zip(beat_spans, clip_indices)):
-        length = max(end - start, 0.0)
-        if length <= 0.01:
-            continue
-        # The closing card is never merged away, however short it runs: it is
-        # on its own pinned plate, and folding it into the previous shot means
-        # the follow card plays over a news clip instead.
-        if segments and length < config.REEL_MIN_SHOT and position != last_index:
-            previous = segments[-1]
-            segments[-1] = (previous[0], previous[1], round(previous[2] + length, 2))
-            continue
-        remaining, step = length, 0
-        while remaining > 0.01:
-            take = min(remaining, config.REEL_MAX_SHOT)
-            if remaining - take < config.REEL_MIN_SHOT:
-                take = remaining
-            available = clip_durations[clip]
-            in_point = min(step * config.REEL_MAX_SHOT, max(available - take, 0))
-            segments.append((clip, round(in_point, 2), round(take, 2)))
-            remaining -= take
-            step += 1
-    if not segments:
-        raise CompositeError("no segments planned")
-
-    # Beat spans end at the last spoken WORD, but the audio carries trailing
-    # silence and the reel adds a tail, so the segments alone leave the video
-    # track short of the audio -- a second of nothing at the end, with the
-    # follow card falling outside the frames that exist. Stretch the final
-    # shot to cover it.
-    target = duration + _TAIL
-    shortfall = target - sum(length for _, _, length in segments)
-    if shortfall > 0.01:
-        clip, in_point, length = segments[-1]
-        length = round(length + shortfall, 2)
-        in_point = round(min(in_point, max(clip_durations[clip] - length, 0)), 2)
-        segments[-1] = (clip, in_point, length)
-    return segments
-
-
-def tile_spans(spans: list, total: float) -> list:
-    """Make beat spans contiguous, so the video track cannot drift.
-
-    align_beats bounds each beat by its first and last SPOKEN word, which
-    leaves the pause between two beats belonging to neither. The video track is
-    built by concatenating segment lengths, so every unallocated pause makes
-    the footage run ahead of the voice by that much, and the error accumulates:
-    in a 13-beat countdown the drift reached several seconds and item number
-    one was captioned VENICE over footage of clouds.
-
-    Each beat is therefore extended to the moment the next beat's first word is
-    spoken. The pause after a line belongs to that line's shot, and every rank
-    card appears exactly as its item is named.
-    """
-    if not spans:
-        return spans
-    tiled = []
-    for index, (start, end) in enumerate(spans):
-        start = 0.0 if index == 0 else tiled[-1][1]
-        if index + 1 < len(spans):
-            end = spans[index + 1][0]
-        else:
-            end = max(total, end)
-        # Spans can overlap by a rounding hair; never emit a backwards one.
-        tiled.append((start, max(end, start + 0.05)))
-    return tiled
-
-
 def build_segments_multi(beat_spans: list, beat_clips: list,
                          clip_durations: list, duration: float) -> list:
-    """Like build_segments, but each beat carries SEVERAL clips of its own.
+    """One item, several clips of its own authentic footage.
 
     The countdown needs this: an item gets about four seconds, and retention
     work is consistent that a static shot past roughly four seconds is where
@@ -853,9 +693,9 @@ def build_segments_multi(beat_spans: list, beat_clips: list,
                     break  # every clip is unusably short; stop, don't hang
                 continue
             take = min(remaining, room, config.REEL_MAX_SHOT)
-            # A would-be sliver after this take reads as a stutter cut, same
-            # rule as build_segments: absorb it into this take instead,
-            # capped at what the clip can actually still supply.
+            # A would-be sliver after this take reads as a stutter cut, so
+            # absorb it into this take instead, capped at what the clip can
+            # actually still supply.
             if 0 < remaining - take < config.REEL_MIN_SHOT:
                 take = min(remaining, room)
             take = round(take, 2)

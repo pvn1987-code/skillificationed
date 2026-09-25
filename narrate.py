@@ -47,7 +47,16 @@ import voiceclone
 # than Chatterbox did -- the audio was fine, the baseline was wrong. A
 # generation far outside THIS band has gone wrong, most often by saying
 # something twice, which lands near double.
-_WORDS_PER_SECOND = 2.2
+#
+# This is its own table, separate from config.WORDS_PER_SECOND: that one is a
+# coarse pre-flight estimate, this one is calibrated from actually measured
+# per-take audio and used to decide whether a take should be REGENERATED, so
+# it is worth keeping accurate per language rather than sharing a number
+# tuned for a different purpose. Telugu's 1.48 is the mean of 7 real beats
+# from the first Telugu build that used a language-aware Whisper pass
+# (1.34-1.60 wps); an unlisted language keeps Edge Christopher's English rate.
+_WORDS_PER_SECOND_BY_LANGUAGE = {"te": 1.48}
+_WORDS_PER_SECOND = _WORDS_PER_SECOND_BY_LANGUAGE.get(config.ASR_LANGUAGE, 2.2)
 _MIN_RATIO, _MAX_RATIO = 0.5, 1.7
 # A breath between beats. It also gives each rank card a clean frame to land on
 # instead of appearing mid-syllable.

@@ -181,6 +181,18 @@ ASR_LANGUAGE = os.getenv("ASR_LANGUAGE", "").strip() or (
     EDGE_TTS_VOICE.split("-", 1)[0].lower()
     if TTS_ENGINE == "edge" and len(EDGE_TTS_VOICE.split("-", 1)[0]) == 2 else "")
 
+# The pre-flight word-count estimate (build.py, reelforge.py's `plan`/`spec`
+# commands) and narrate.py's per-take quality check both used to hardcode an
+# English rate (2.8, 2.2) regardless of language. Harmless for English, but
+# for Telugu the real measured rate is roughly half that -- a script whose
+# word count "estimated 58s, in the target band" actually ran 109s once
+# spoken, because the estimate never knew it was about to be read in Telugu.
+# One table, keyed the same way ASR_LANGUAGE is, so every caller agrees.
+# Extend this as more languages are added; an unlisted language keeps the
+# English rate rather than guessing.
+WORDS_PER_SECOND_BY_LANGUAGE = {"te": 1.45}
+WORDS_PER_SECOND = WORDS_PER_SECOND_BY_LANGUAGE.get(ASR_LANGUAGE, 2.8)
+
 # --- Visual sourcing: the authenticity ladder -------------------------------
 # The whole point of this project. Pexels never returns an empty result set --
 # "Elon Musk" returns a drone shot of a beach -- so a keyword search alone will

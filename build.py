@@ -284,7 +284,7 @@ def build(plan: dict, day_dir: Path, log, tag: str = "reel") -> dict:
     beats = [b for b in make_beats(plan) if b["line"].strip()]
     script = " ".join(b["line"] for b in beats)
     words = len(script.split())
-    estimate = words / 2.8
+    estimate = words / config.WORDS_PER_SECOND
     log(f"\n  {len(beats)} beats, {words} words (~{estimate:.0f}s spoken)")
     if not config.TARGET_SECONDS_MIN <= estimate <= config.TARGET_SECONDS_MAX:
         log(f"  ! estimated {estimate:.0f}s is outside the "

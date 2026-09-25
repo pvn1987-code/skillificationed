@@ -117,7 +117,11 @@ def cmd_plan(args) -> int:
         _log(f"\n  TEASE: \"{plan['tease']}\"")
     _log(f"  CTA:   \"{plan.get('cta', '')}\"")
     words = planner.script_words(raw)
-    _log(f"\n  {words} words, about {words / 2.8:.0f}s spoken "
+    # Gemini always writes English here (see planner.WORDS_PER_SECOND), so
+    # this deliberately does not use config.WORDS_PER_SECOND -- that reflects
+    # whatever language the build's own voice is configured for, which is a
+    # different, unrelated setting from what language THIS text is written in.
+    _log(f"\n  {words} words, about {words / planner.WORDS_PER_SECOND:.0f}s spoken "
          f"(target {config.TARGET_SECONDS_MIN:.0f}-{config.TARGET_SECONDS_MAX:.0f}s)")
     if plan.get("sources_note"):
         _log(f"  note: {plan['sources_note']}")
@@ -190,7 +194,7 @@ def cmd_spec(args) -> int:
     spoken = sum(len(i["line"].split()) for i in plan["items"])
     spoken += len(plan["hook"].split()) + len(plan["cta"].split())
     asked = sum(float(i.get("min_seconds") or 0) for i in plan["items"])
-    _log(f"\n  {spoken} words, about {spoken / 2.8:.0f}s spoken"
+    _log(f"\n  {spoken} words, about {spoken / config.WORDS_PER_SECOND:.0f}s spoken"
          f"   (your duration_sec totals {asked:.0f}s across the items)")
     _log(f"\n  written to {day / 'plan.json'}")
     if args.plan_only:

@@ -38,7 +38,13 @@ from google.genai import types
 import config
 
 SCHEMA_VERSION = 6          # bump to invalidate every cached plan
-_WORDS_PER_SECOND = 2.8
+# Gemini is never asked to write in anything but English here (no language
+# directive exists in any prompt below), so this stays the English rate
+# regardless of config.WORDS_PER_SECOND -- which reflects whatever language
+# the CURRENT build's spec/voice actually is, a different question. Public
+# (no leading underscore) so reelforge.py's own word-budget display can
+# reference the same number instead of a second hardcoded copy going stale.
+WORDS_PER_SECOND = 2.8
 
 
 class PlannerError(RuntimeError):
@@ -430,7 +436,7 @@ def _ask(prompt: str, schema: dict, temperature: float = 0.9,
 
 def _rules(count: int) -> str:
     mid = (config.TARGET_SECONDS_MIN + config.TARGET_SECONDS_MAX) / 2
-    budget = int(mid * _WORDS_PER_SECOND)
+    budget = int(mid * WORDS_PER_SECOND)
     # Unlike the old schema, the voiceover now INCLUDES the number and name, so
     # the per-item budget is the whole spoken line rather than what is left
     # after them.
