@@ -236,8 +236,11 @@ def narrate(beats: list, day_dir: Path, log, tag: str = "reel") -> dict:
         # Captions carry the SCRIPT's words with Whisper's timings, never
         # Whisper's transcription -- it turned Venice into "Vanessa" and
         # Marrakesh into "Marach, Ismael", and those would have been burned
-        # into the frame.
-        timed = videocomposite.retime_script(line, heard)
+        # into the frame. `duration` (this beat's own measured wav length)
+        # anchors the last word to the clip's real end, so a script whose
+        # tail only near-misses what Whisper heard doesn't collapse into a
+        # fraction of a second -- see retime_script's docstring.
+        timed = videocomposite.retime_script(line, heard, duration)
         for word in timed:
             words.append({**word,
                           "start": float(word["start"]) + cursor,

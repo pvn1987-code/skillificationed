@@ -98,7 +98,7 @@ def _norm(token: str) -> str:
                    if not unicodedata.category(ch).startswith("P"))
 
 
-def retime_script(script: str, words: list) -> list:
+def retime_script(script: str, words: list, duration: float | None = None) -> list:
     """Script words carrying Whisper's timings.
 
     Captions must show what was WRITTEN, not what the recogniser heard. Whisper
@@ -106,6 +106,20 @@ def retime_script(script: str, words: list) -> list:
     burned straight into the frame. The script is known exactly, so only the
     timing needs recovering: match the two sequences, take timings where they
     agree, and interpolate across the gaps.
+
+    `duration` is the beat's REAL, independently-measured audio length (from
+    probe_duration on the actual wav) -- not required, but without it a script
+    whose tail barely matches what Whisper heard collapses. A Telugu ASR pass
+    given the right language (see reel_worker.py) transcribes close to the
+    script but not exactly -- "నెమ్మదిగా" heard back as "నమ్మదిగా" -- and
+    difflib's matching is EXACT, so a near-miss is as good as no match at all.
+    One beat matched only "ఇది" ("this") as its last real anchor at 4.5s into
+    a 7.58s clip; the five words after it (over half the sentence) used to
+    each get a fixed ~0.14s slot counting forward from there with no notion of
+    how much real audio remained, so the whole tail flashed by in under a
+    second while the voice kept speaking for three more. Anchoring the last
+    interpolated word to the CLIP'S OWN measured end instead fixes that
+    regardless of how few words happened to match exactly.
     """
     tokens = script.split()
     if not tokens:
@@ -122,36 +136,41 @@ def retime_script(script: str, words: list) -> list:
             source, target = block.a + offset, block.b + offset
             timed[target] = (float(words[source]["start"]), float(words[source]["end"]))
 
+    end_of_audio = float(duration) if duration is not None else float(words[-1]["end"])
+
     # Interpolate anything unmatched between its nearest timed neighbours, so a
     # misheard word still lands on the right moment rather than vanishing.
     anchors = [i for i, t in enumerate(timed) if t]
     if not anchors:
-        span = (float(words[-1]["end"]) - float(words[0]["start"])) / len(tokens)
-        start0 = float(words[0]["start"])
-        return [{"word": t, "start": start0 + i * span, "end": start0 + (i + 1) * span}
+        span = end_of_audio / len(tokens)
+        return [{"word": t, "start": i * span, "end": (i + 1) * span}
                 for i, t in enumerate(tokens)]
 
     first, last = anchors[0], anchors[-1]
-    for index in range(len(tokens)):
+    if first > 0:
+        # Spread the whole lead-in across [0, first anchor's start], not a
+        # fixed step backward from it -- the same collapse as the tail,
+        # mirrored, if enough leading words fail to match exactly.
+        share = max(timed[first][0] / first, 0.05)
+        for index in range(first):
+            timed[index] = (index * share, (index + 1) * share)
+    if last < len(tokens) - 1:
+        base = timed[last][1]
+        share = max((end_of_audio - base) / (len(tokens) - 1 - last), 0.05)
+        for index in range(last + 1, len(tokens)):
+            position = index - last - 1
+            timed[index] = (base + position * share, base + (position + 1) * share)
+    for index in range(first + 1, last):
         if timed[index]:
             continue
-        if index < first:
-            base = timed[first][0]
-            step = 0.16 * (first - index)
-            timed[index] = (max(base - step, 0.0), max(base - step + 0.14, 0.05))
-        elif index > last:
-            base = timed[last][1]
-            step = 0.16 * (index - last - 1)
-            timed[index] = (base + step, base + step + 0.14)
-        else:
-            before = max(a for a in anchors if a < index)
-            after = min(a for a in anchors if a > index)
-            gap_start, gap_end = timed[before][1], timed[after][0]
-            slots = after - before
-            share = max((gap_end - gap_start) / slots, 0.08)
-            position = index - before - 1
-            timed[index] = (gap_start + position * share,
-                            gap_start + (position + 1) * share)
+        before = max(a for a in anchors if a < index)
+        after = min(a for a in anchors if a > index)
+        gap_start, gap_end = timed[before][1], timed[after][0]
+        slots = after - before
+        share = max((gap_end - gap_start) / slots, 0.08)
+        position = index - before - 1
+        timed[index] = (gap_start + position * share,
+                        gap_start + (position + 1) * share)
 
     return [{"word": token, "start": timed[i][0], "end": timed[i][1]}
             for i, token in enumerate(tokens)]
