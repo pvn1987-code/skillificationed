@@ -4,3 +4,7 @@ pillow>=11.0
 google-genai>=1.0
 python-dotenv>=1.0
 edge-tts>=7.0
+# sources/youtube.py (CC-gated b-roll) and remix.py (clip remix) both shell
+# out to this; was previously undeclared and only worked if a system copy
+# happened to be on PATH.
+yt-dlp>=2026.1

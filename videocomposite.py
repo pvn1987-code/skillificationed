@@ -387,8 +387,13 @@ def _draw_follow_card(draw, progress: float) -> None:
     handle = config.INSTAGRAM_HANDLE
 
     size = round(66 * scale)
-    font = _font(size)
-    hfont = _font(round(40 * scale))
+    # `label`/`handle` carry the text being drawn: without passing them,
+    # _font() has nothing to detect Telugu from and silently falls back to
+    # DISPLAY_FONT (Anton, zero Telugu glyph coverage) even when
+    # REEL_FOLLOW_TEXT is Telugu -- the card rendered as tofu boxes on every
+    # Telugu build until this was caught (2026-10-01).
+    font = _font(size, label)
+    hfont = _font(round(40 * scale), handle)
     text_w = draw.textlength(label, font=font)
     pad_x, pad_y = round(58 * scale), round(30 * scale)
     half_w, half_h = text_w / 2 + pad_x, size / 2 + pad_y
@@ -510,12 +515,14 @@ def _draw_credits(draw, lines: list, alpha: int) -> None:
     """
     if not lines:
         return
-    font = _font(26)
     y = config.REEL_H - _SAFE_BOTTOM + 60
     draw.text((config.REEL_W // 2, y - 40), "FOOTAGE", font=_font(22),
               fill=(190, 194, 204, alpha), anchor="mm")
     for line in lines[:5]:
-        draw.text((config.REEL_W // 2, y), line[:78], font=font,
+        # Same fix as _draw_follow_card: a credit line can legitimately carry
+        # Telugu (a Telugu video title, a Telugu channel name), and the font
+        # has to be picked per-line rather than once for the whole card.
+        draw.text((config.REEL_W // 2, y), line[:78], font=_font(26, line),
                   fill=(226, 229, 236, alpha), anchor="mm")
         y += 34
 

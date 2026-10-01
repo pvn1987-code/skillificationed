@@ -381,6 +381,66 @@ REEL_FACE_MIN_HITS = int(os.getenv("REEL_FACE_MIN_HITS", "2"))
 VISION_CHECK = os.getenv("VISION_CHECK", "true").strip().lower() == "true"
 VISION_BATCH_SIZE = int(os.getenv("VISION_BATCH_SIZE", "4"))
 
+# --- Clip remix: skill/tutorial reels built on a credited excerpt -----------
+# A different content type from the countdown: one YouTube video's single
+# useful moment, trimmed short, re-narrated in OUR voice (videocomposite.
+# assemble never carries a clip's own audio, so the source's original words
+# are never what plays), and credited on screen, in the voice, in the
+# Instagram caption, and in a permanent audit log -- never a blind repost.
+#
+# sources/youtube.py's fetch_by_id() above requires a verified Creative
+# Commons licence before anything carries a countdown item; this is a
+# deliberately different, looser posture (most tutorial creators never set
+# that flag regardless of how shareable their video is in spirit), closer to
+# commentary/review-style reuse. It trades the hard licence proof for: a short
+# excerpt, transformative narration that is never the creator's own words,
+# and credit that cannot be switched off. See sources/youtube.py's "Clip
+# remix" section docstring before loosening anything here.
+REMIX_SEARCH_RESULTS = int(os.getenv("REMIX_SEARCH_RESULTS", "12"))
+# "Trim to the key moment", not the whole video -- both a format fit (a
+# 45-60s reel has no room for a 10-minute tutorial) and the strongest lever
+# this project has over how defensible the excerpt is.
+REMIX_CLIP_MIN_SECONDS = float(os.getenv("REMIX_CLIP_MIN_SECONDS", "8"))
+REMIX_CLIP_MAX_SECONDS = float(os.getenv("REMIX_CLIP_MAX_SECONDS", "22"))
+# A clip is not remixed twice within this many days.
+REMIX_REUSE_DAYS = int(os.getenv("REMIX_REUSE_DAYS", "45"))
+# Caption-only, same placement convention as DISCLOSURE_LINE above -- but that
+# line says "real, licensed stock", which would be false here.
+REMIX_DISCLOSURE_LINE = os.getenv(
+    "REMIX_DISCLOSURE_LINE",
+    "Narration is an AI voice, written and read by this channel. The clip "
+    "shown is a short excerpt from the creator credited above.").strip()
+# CTA_LINE above says "...take to number one" -- a countdown-rank reference
+# that makes no sense on a single-skill reel. remix.py asks Gemini to write a
+# fresh, video-specific CTA for every reel instead of reusing one fixed line
+# (unlike CTA_LINE's own "reworded every build is just noise" reasoning --
+# a deliberate exception here since each remix video is a different skill and
+# a tailored ask ("tag someone who still does this the hard way") can land
+# better than one generic line repeated forever). This is only the FALLBACK
+# for the rare case Gemini's own cta field comes back empty.
+REMIX_CTA_LINE = os.getenv(
+    "REMIX_CTA_LINE", "Send this to someone who needs to see it.").strip()
+# Keyed like CTA_CARD_TEXT_BY_LANGUAGE above -- the English fallback would be
+# exactly the bug this project just hit (English text read by a Telugu-tagged
+# voice) if it ever actually fired on a Telugu build.
+REMIX_CTA_LINE_BY_LANGUAGE = {
+    "te": os.getenv("REMIX_CTA_LINE_TE", "ఇది కావాల్సిన వారికి పంపండి.").strip(),
+}
+# The spoken credit line naming the original creator -- CODE-generated, never
+# model-written, the same reasoning build.py's countdown numbers are spoken
+# by the pipeline and never by Gemini: the one thing this line must never get
+# wrong is a real person's channel name. {channel} is substituted in as-is,
+# never translated -- a proper noun is read in its own form, same rule as
+# TRANSLITERATION_DENYLIST. First Telugu text this project has ever shipped
+# that a human didn't write by hand (RUNBOOK precedent: sanity-check with a
+# Telugu speaker before trusting it on more than a handful of builds).
+REMIX_CREDIT_LINE_BY_LANGUAGE = {
+    "te": os.getenv("REMIX_CREDIT_LINE_TE",
+                    "ఈ క్లిప్ YouTubeలో {channel} నుండి.").strip(),
+}
+REMIX_CREDIT_LINE_EN = os.getenv(
+    "REMIX_CREDIT_LINE_EN", "Clip from {channel} on YouTube.").strip()
+
 # --- Compatibility shims ----------------------------------------------------
 # videocomposite.py, voiceclone.py, screening.py and reel_worker.py are forked
 # from the news pipeline and still read the REEL_* names. Aliasing here keeps

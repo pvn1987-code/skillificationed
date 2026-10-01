@@ -9,6 +9,10 @@
   ./reelforge.py probe                       environment check, no network
   ./reelforge.py prune                       evict oldest cached assets
 
+  ./reelforge.py remix "how to fold a fitted sheet"       skill reel
+  ./reelforge.py remix-plan "..." --mode topic --topic "Top 10 cities"
+  ./reelforge.py remix-build "..."           render the remix plan
+
 Plans are cached, so `build` after editing plan.json spends no Gemini quota.
 
 Exit codes: 0 ok, 1 nothing to do, 2 dependency missing, 3 unexpected,
@@ -40,9 +44,10 @@ if (_VENV_PYTHON.exists() and not os.environ.get("REELFORGE_REEXEC")
 import build as builder
 import config
 import planner
+import remix
 import spec as specfile
 import voiceclone
-from sources import stock
+from sources import stock, youtube
 
 
 def _log(message: str = "") -> None:
@@ -65,6 +70,16 @@ def _day_dir(topic: str) -> Path:
 
 def _plan_path(topic: str) -> Path:
     return _day_dir(topic) / "plan.json"
+
+
+def _remix_day_dir(query: str) -> Path:
+    # Prefixed so a remix reel can never collide with a countdown slug built
+    # from a similar-sounding query.
+    return config.OUTPUT_DIR / f"remix-{_slug(query)}"
+
+
+def _remix_plan_path(query: str) -> Path:
+    return _remix_day_dir(query) / "remix_plan.json"
 
 
 def cmd_topics(args) -> int:
@@ -204,6 +219,54 @@ def cmd_spec(args) -> int:
     return cmd_build(args)
 
 
+def cmd_remix_plan(args) -> int:
+    """Picks a YouTube video, locates its key moment, and writes our own
+    narration -- the same plan-then-build split as a countdown, so the result
+    can be read and corrected before anything downloads or voices."""
+    data = remix.plan(args.query, mode=args.mode, topic=args.topic or "",
+                      refresh=args.refresh, log=_log)
+    day = _remix_day_dir(args.query)
+    day.mkdir(parents=True, exist_ok=True)
+    (day / "remix_plan.json").write_text(json.dumps(data, indent=2))
+
+    seg = data["segment"]
+    _log(f"\n  picked: \"{data['title']}\" — {data['channel']}")
+    _log(f"  why: {data['why_picked']}")
+    _log(f"  segment: {seg['start_s']:.0f}s-{seg['end_s']:.0f}s "
+         f"({seg['end_s'] - seg['start_s']:.0f}s) — {seg['on_screen_label']}")
+    _log(f"  reason: {seg['reason']}")
+    _log(f"\n  HOOK: \"{data['hook']}\"")
+    for line in data["beats"]:
+        _log(f"   beat: {line}")
+    credit_template = config.REMIX_CREDIT_LINE_BY_LANGUAGE.get(
+        config.ASR_LANGUAGE, config.REMIX_CREDIT_LINE_EN)
+    _log(f"  CREDIT (spoken): \"{credit_template.format(channel=data['channel'])}\"")
+    _log(f"  CTA:   \"{data['cta']}\"")
+    _log(f"\n  written to {day / 'remix_plan.json'} (edit this)")
+    _log(f"  then:  ./reelforge.py remix-build \"{args.query}\"")
+    return 0
+
+
+def cmd_remix_build(args) -> int:
+    path = _remix_plan_path(args.query)
+    if not path.exists():
+        _log(f"X no remix plan for '{args.query}' — run `remix-plan` first")
+        return 1
+    plan_data = json.loads(path.read_text())
+    _log(f"\n=== remix: {plan_data.get('title', args.query)} — "
+         f"{datetime.now():%Y-%m-%d %H:%M} ===")
+    manifest = remix.build(plan_data, _remix_day_dir(args.query), _log)
+    _log(f"\n  source: {manifest['source']['video_url']} "
+         f"({manifest['source']['channel']})")
+    _log(f"Done: {_remix_day_dir(args.query) / manifest['file']}")
+    return 0
+
+
+def cmd_remix(args) -> int:
+    code = cmd_remix_plan(args)
+    return code if code else cmd_remix_build(args)
+
+
 def cmd_probe(_args) -> int:
     from shutil import which
     _log("ReelForge environment:")
@@ -277,6 +340,20 @@ def main() -> int:
                           help=argparse.SUPPRESS)
     spec_cmd.set_defaults(func=cmd_spec)
 
+    for name, func, helptext in (
+            ("remix-plan", cmd_remix_plan, "pick a YouTube clip and write its script"),
+            ("remix-build", cmd_remix_build, "render the remix plan"),
+            ("remix", cmd_remix, "remix-plan then remix-build")):
+        sub = subs.add_parser(name, help=helptext)
+        sub.add_argument("query", help="search keyword for the YouTube clip")
+        sub.add_argument("--mode", choices=("skill", "topic"), default="skill",
+                         help="skill = standalone; topic = pairs with --topic")
+        sub.add_argument("--topic", default="",
+                         help="today's countdown topic, when --mode topic")
+        sub.add_argument("--refresh", action="store_true",
+                         help="spend Gemini quota instead of using the cache")
+        sub.set_defaults(func=func)
+
     probe = subs.add_parser("probe", help="environment check")
     probe.set_defaults(func=cmd_probe)
 
@@ -305,7 +382,10 @@ def main() -> int:
     except builder.FootageHostile as exc:
         _log(f"\nX stopping before the expensive part:\n  {exc}")
         return 1
-    except (planner.PlannerError, builder.BuildError) as exc:
+    except youtube.YouTubeError as exc:
+        _log(f"X {exc}")
+        return 2
+    except (planner.PlannerError, builder.BuildError, remix.RemixError) as exc:
         _log(f"X {exc}")
         return 2
     except KeyboardInterrupt:
