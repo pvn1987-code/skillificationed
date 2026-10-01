@@ -90,6 +90,18 @@ def _screen():
     return screening.has_faces if config.REJECT_FACES else None
 
 
+def _verify(subject: str):
+    """Gemini vision check, bound to what this candidate is supposed to show.
+
+    Only ever passed into ILLUSTRATIVE-tier lookups (_authored_shots,
+    _photo_shots) -- EXACT/PROXY already verify against the entity's own
+    identifiers, and GENERIC mood footage has no subject to check against.
+    """
+    if not config.VISION_CHECK:
+        return None
+    return lambda paths: screening.verify_subjects(subject, paths)
+
+
 def _stock_shots(entity, wanted: int, seen: set, log, query: str = "") -> list:
     """Verified stock video of this entity, or nothing. Never a near-miss.
 
@@ -190,7 +202,8 @@ def _photo_shots(query: str, name: str, wanted: int, seen: set, log,
     shots, directions = [], ("in", "out", "in", "out")
     for index in range(wanted):
         try:
-            found = stock.find_photo(query, distinctive, seen=seen)
+            found = stock.find_photo(query, distinctive, seen=seen,
+                                     verify=_verify(query))
         except Exception as exc:                  # noqa: BLE001
             log(f"      photo search failed: {exc}")
             break
@@ -206,10 +219,13 @@ def _photo_shots(query: str, name: str, wanted: int, seen: set, log,
                 log(f"      ken burns failed: {exc}")
                 continue
         credit["motion"] = f"ken burns {direction}"
+        unverified = not credit.get("vision_verified", True)
         shots.append(Shot(path=clip, credit=credit,
                           tier=config.TIER_ILLUSTRATIVE, subject=query,
-                          note=f"photo, slug match {credit['match_ratio']}"))
-        log(f"      photo: {credit['page'].rstrip('/').rsplit('/', 1)[-1][:44]}"
+                          note=(f"photo, slug match {credit['match_ratio']}"
+                                + (" (not vision-confirmed)" if unverified else ""))))
+        log(f"      photo{'  ! unverified' if unverified else ''}: "
+            f"{credit['page'].rstrip('/').rsplit('/', 1)[-1][:44]}"
             f"  match={credit['match_ratio']}")
     return shots
 
@@ -310,14 +326,18 @@ def _authored_shots(query: str, name: str, wanted: int, seen: set, log) -> list:
             if not tokens:
                 continue
             found = stock.find([phrase], [tokens], seen=seen,
-                               min_ratio=ratio, screen=_screen())
+                               min_ratio=ratio, screen=_screen(),
+                               verify=_verify(phrase))
             if not found:
                 continue
             path, credit = found
+            unverified = not credit.get("vision_verified", True)
             shots.append(Shot(path=path, credit=credit,
                               tier=config.TIER_ILLUSTRATIVE, subject=phrase,
-                              note=f"your shot for {name}"))
-            log(f"      yours: '{phrase[:38]}' -> {Path(path).name[:34]}")
+                              note=(f"your shot for {name}"
+                                    + (" (not vision-confirmed)" if unverified else ""))))
+            log(f"      yours{'  ! unverified' if unverified else ''}: "
+                f"'{phrase[:38]}' -> {Path(path).name[:34]}")
     return shots
 
 
@@ -397,6 +417,19 @@ def for_item(name: str, kind: str, seen: set, log, day_dir: Path,
             while len(result.shots) < wanted:
                 result.shots.append(result.shots[0])
             return result
+        # No clip passed (nothing matched, or the vision check rejected every
+        # candidate). A still is the fallback here, never the first choice --
+        # real motion beats a moving photograph -- and only reached once video
+        # has actually failed. `stills` already tried this above; skip a
+        # second, identical attempt.
+        if not stills:
+            found = _photo_shots(query, name, wanted, seen, log, day_dir)
+            if found:
+                result = ItemVisuals(name=name, shots=found[:wanted],
+                                     tier=config.TIER_ILLUSTRATIVE)
+                while len(result.shots) < wanted:
+                    result.shots.append(result.shots[0])
+                return result
         log(f"      (nothing matched your query for {name}; using the subject)")
 
     entity = entities.resolve(name, kind)
@@ -432,6 +465,8 @@ def for_item(name: str, kind: str, seen: set, log, day_dir: Path,
     # the right idea.
     if query and depictable:
         found = _authored_shots(query, name, wanted, seen, log)
+        if not found and not stills:
+            found = _photo_shots(query, name, wanted, seen, log, day_dir)
         if found:
             result.shots = found[:wanted]
             result.tier = config.TIER_ILLUSTRATIVE

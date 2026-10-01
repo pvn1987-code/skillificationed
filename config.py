@@ -30,6 +30,11 @@ WIKI_USER_AGENT = os.getenv(
 OUTPUT_DIR = ROOT / "output"
 STATE_DIR = ROOT / "state"
 ASSET_CACHE = STATE_DIR / "assets"
+# Every downloaded clip/photo lives here forever otherwise -- ~1GB across a
+# few topics. Nothing in it is irreplaceable (everything re-downloads), so
+# `./reelforge.py prune` evicts the oldest-downloaded files down to this cap
+# rather than an LRU that would need every read to bump a timestamp.
+ASSET_CACHE_MAX_MB = int(os.getenv("ASSET_CACHE_MAX_MB", "2048"))
 # Every Gemini response is cached by topic hash. Re-running a build, or
 # rebuilding after a render bug, must never spend a second free-tier call.
 PLAN_CACHE = STATE_DIR / "plans"
@@ -114,6 +119,15 @@ CTA_LINE = os.getenv(
     "CTA_LINE",
     "Send this to the one person you'd take to number one.").strip()
 CTA_CARD_TEXT = os.getenv("CTA_CARD_TEXT", "SEND THIS").strip()
+# The card is BURNED INTO THE FRAME, so it cannot silently stay in English on
+# a non-English reel the way CTA_LINE (caption-only, sourced from the spec's
+# own language already) can -- the Telugu diabetes reel shipped with a
+# Telugu outro caption under an English "SEND THIS" card, an immersion break.
+# Keyed the same way ASR_LANGUAGE is derived from the voice, so a language
+# switch cannot leave this stale either.
+CTA_CARD_TEXT_BY_LANGUAGE = {
+    "te": os.getenv("CTA_CARD_TEXT_TE", "షేర్ చేయండి").strip(),
+}
 CTA_SECONDS = float(os.getenv("CTA_SECONDS", "2.6"))
 
 # --- Captions ----------------------------------------------------------------
@@ -155,6 +169,23 @@ EDGE_TTS_VOICE = os.getenv("EDGE_TTS_VOICE", "en-US-ChristopherNeural").strip()
 # faster read. Leave at "+0%" unless explicitly asked to change the pace.
 EDGE_TTS_RATE = os.getenv("EDGE_TTS_RATE", "+0%").strip()
 
+# A third engine: Sarvam AI's Bulbul model, built for Indian languages rather
+# than a generic multilingual model with Telugu bolted on -- worth trying
+# specifically because Google Cloud TTS's te-IN voices are Standard tier only
+# (no WaveNet/Neural2/Chirp3-HD for Telugu as of 2026-09), likely a downgrade
+# from Edge's te-IN-ShrutiNeural rather than an upgrade. Sarvam needs a free
+# API key from sarvam.ai (₹1,000 free credit, then ~₹30/10k chars) -- not
+# zero-cost like Edge, so it stays opt-in via TTS_ENGINE=sarvam, never default.
+SARVAM_API_KEY = os.getenv("SARVAM_API_KEY", "").strip()
+# BCP-47. Also feeds ASR_LANGUAGE below, the same way EDGE_TTS_VOICE's prefix
+# does for the edge engine, so caption timing doesn't need a separate setting.
+SARVAM_TTS_LANGUAGE = os.getenv("SARVAM_TTS_LANGUAGE", "te-IN").strip()
+SARVAM_TTS_MODEL = os.getenv("SARVAM_TTS_MODEL", "bulbul:v3").strip()
+# Left blank by default rather than guessing a speaker name -- an unset value
+# lets Sarvam apply its own model default instead of failing on a bad guess.
+SARVAM_TTS_SPEAKER = os.getenv("SARVAM_TTS_SPEAKER", "").strip()
+SARVAM_TTS_PACE = float(os.getenv("SARVAM_TTS_PACE", "1.0"))
+
 TTS_MODEL = os.getenv("TTS_MODEL", "mlx-community/chatterbox-fp16").strip()
 VOICE_SAMPLE = os.getenv("VOICE_SAMPLE", "").strip()
 EXAGGERATION = float(os.getenv("EXAGGERATION", "0.7"))
@@ -179,7 +210,9 @@ ASR_MODEL = os.getenv("ASR_MODEL", "mlx-community/whisper-large-v3-turbo").strip
 # auto-detect (e.g. for Chatterbox, whose cloned voice has no such prefix).
 ASR_LANGUAGE = os.getenv("ASR_LANGUAGE", "").strip() or (
     EDGE_TTS_VOICE.split("-", 1)[0].lower()
-    if TTS_ENGINE == "edge" and len(EDGE_TTS_VOICE.split("-", 1)[0]) == 2 else "")
+    if TTS_ENGINE == "edge" and len(EDGE_TTS_VOICE.split("-", 1)[0]) == 2 else
+    SARVAM_TTS_LANGUAGE.split("-", 1)[0].lower()
+    if TTS_ENGINE == "sarvam" and len(SARVAM_TTS_LANGUAGE.split("-", 1)[0]) == 2 else "")
 
 # The pre-flight word-count estimate (build.py, reelforge.py's `plan`/`spec`
 # commands) and narrate.py's per-take quality check both used to hardcode an
@@ -192,6 +225,22 @@ ASR_LANGUAGE = os.getenv("ASR_LANGUAGE", "").strip() or (
 # English rate rather than guessing.
 WORDS_PER_SECOND_BY_LANGUAGE = {"te": 1.45}
 WORDS_PER_SECOND = WORDS_PER_SECOND_BY_LANGUAGE.get(ASR_LANGUAGE, 2.8)
+
+# --- Transliteration denylist (spec.py) --------------------------------------
+# A generated Telugu script must TRANSLITERATE a named thing or technical term
+# (keep the actual word, in Telugu script) and only TRANSLATE genuinely
+# descriptive language. Gemini's first pass at a real topic instead forced
+# dictionary translations that are technically valid Telugu but not what this
+# audience actually calls either thing: "diabetes" as మధుమేహం, "Nuts and
+# Seeds" as గింజలు మరియు విత్తనాలు (RUNBOOK: "Telugu script over-translates
+# specific terms"). This is NOT a ban on Telugu script -- కాకరకాయ, మెంతులు,
+# రాగి (bitter gourd, fenugreek, ragi) are correct as written and must not be
+# touched; the rule is only about a forced dictionary substitution for a name
+# or term this audience does not actually use.
+TRANSLITERATION_DENYLIST = {
+    "మధుమేహం": "డయాబెటిస్",
+    "గింజలు మరియు విత్తనాలు": "నట్స్ మరియు సీడ్స్",
+}
 
 # --- Visual sourcing: the authenticity ladder -------------------------------
 # The whole point of this project. Pexels never returns an empty result set --
@@ -288,11 +337,49 @@ GENERIC_VISUALS = [v.strip() for v in os.getenv(
     "abstract light streaks|mountain landscape drone"
 ).split("|") if v.strip()]
 
+# --- Music bed ----------------------------------------------------------
+# There is no music anywhere in the pipeline today -- every reel ships dry
+# voiceover, which exposes every TTS artifact instead of covering for it.
+# Empty by default: an unset MUSIC_BED changes nothing about existing builds.
+#
+# Source the loop from Pixabay Music (pixabay.com/music -- free, no
+# attribution, licensed for all platforms), NOT the YouTube Audio Library,
+# whose licence is YouTube-only and this ships to Instagram too. Download a
+# loop by hand, point MUSIC_BED at the file.
+#
+# ONE signature track for every reel, deliberately, not a different loop per
+# topic -- a consistent bed is a free piece of channel identity that a
+# different-track-every-time pipeline throws away.
+_music_bed = os.getenv("MUSIC_BED", "").strip()
+MUSIC_BED = (str(ROOT / _music_bed) if _music_bed and not os.path.isabs(_music_bed)
+            else _music_bed)
+# Ducking under the voice, in dB (negative = quieter). -18 to -22 is the
+# range where the bed is felt rather than noticed; if the melody is
+# identifiable, it is too loud.
+MUSIC_BED_DB = float(os.getenv("MUSIC_BED_DB", "-20"))
+
 # --- Face screening (off by default, as in the news pipeline) ----------------
 REJECT_FACES = os.getenv("REJECT_FACES", "false").strip().lower() == "true"
 REEL_FACE_MODEL = STATE_DIR / "models" / "yunet.onnx"
 REEL_FACE_SAMPLES = int(os.getenv("REEL_FACE_SAMPLES", "6"))
 REEL_FACE_MIN_HITS = int(os.getenv("REEL_FACE_MIN_HITS", "2"))
+
+# --- Vision content check (ILLUSTRATIVE tier only) ---------------------------
+# The slug gate above proves a clip's PAGE DESCRIPTION carries the query's
+# words, never that the frame shows the subject -- "oatmeal bowl breakfast"
+# cleared that gate and rendered a yogurt-and-blueberry cup; "bitter melon
+# vegetable" cleared it and rendered a generic aerial farm. Only the pixels
+# settle it, so one representative frame per candidate is shown to Gemini and
+# asked "does this clearly show <query>?".
+#
+# Batched: the free tier is 20 requests/day, and a 10-item reel can have ~20
+# ILLUSTRATIVE clips to check, so candidates are gathered into groups and
+# asked about together rather than one request per clip. Verdicts are cached
+# by filename (which already embeds the Pexels asset id, so it is a stable
+# clip identity) so a rebuild never re-asks. A pinned `pexels_ids` clip never
+# reaches this -- fetch_by_id bypasses the whole gate, by design.
+VISION_CHECK = os.getenv("VISION_CHECK", "true").strip().lower() == "true"
+VISION_BATCH_SIZE = int(os.getenv("VISION_BATCH_SIZE", "4"))
 
 # --- Compatibility shims ----------------------------------------------------
 # videocomposite.py, voiceclone.py, screening.py and reel_worker.py are forked
@@ -319,10 +406,15 @@ REEL_HANDLE_ALPHA = int(os.getenv("REEL_HANDLE_ALPHA", "105"))
 REEL_HANDLE_PLATE = os.getenv("REEL_HANDLE_PLATE", "false").strip().lower() == "true"
 INSTAGRAM_HANDLE = BRAND_HANDLE
 REEL_END_CARD_SECONDS = CTA_SECONDS
-REEL_FOLLOW_TEXT = CTA_CARD_TEXT
+REEL_FOLLOW_TEXT = CTA_CARD_TEXT_BY_LANGUAGE.get(ASR_LANGUAGE, CTA_CARD_TEXT)
 REEL_TTS_ENGINE = TTS_ENGINE
 REEL_EDGE_TTS_VOICE = EDGE_TTS_VOICE
 REEL_EDGE_TTS_RATE = EDGE_TTS_RATE
+REEL_SARVAM_API_KEY = SARVAM_API_KEY
+REEL_SARVAM_TTS_LANGUAGE = SARVAM_TTS_LANGUAGE
+REEL_SARVAM_TTS_MODEL = SARVAM_TTS_MODEL
+REEL_SARVAM_TTS_SPEAKER = SARVAM_TTS_SPEAKER
+REEL_SARVAM_TTS_PACE = SARVAM_TTS_PACE
 REEL_TTS_MODEL = TTS_MODEL
 REEL_VOICE_SAMPLE = VOICE_SAMPLE
 REEL_EXAGGERATION = EXAGGERATION

@@ -111,21 +111,29 @@ def _repeats(script: str, heard: list, size: int = 4) -> str:
 
 
 def _take_key(line: str) -> str:
-    """Identity of a take: its words and the voice settings that shaped it.
+    """Identity of a take: its words and the voice AND transcription settings
+    that shaped it.
 
-    Must include EVERY setting either engine reads. Missing REEL_TTS_ENGINE
-    here would mean switching engines does not change the key, so a rebuild
-    after moving from Chatterbox to Edge would silently reuse the old
-    Chatterbox wav under "(reusing voiced take)" instead of actually
-    re-synthesising -- exactly the kind of stale-cache bug this key exists
-    to prevent, just aimed at the wrong axis.
+    Must include EVERY setting either engine, or the transcriber, reads.
+    Missing REEL_TTS_ENGINE here would mean switching engines does not change
+    the key, so a rebuild after moving from Chatterbox to Edge would silently
+    reuse the old Chatterbox wav under "(reusing voiced take)" instead of
+    actually re-synthesising. The reuse path (_synthesise_one) skips
+    transcription too, reusing the cached words.json wholesale -- so
+    REEL_ASR_LANGUAGE/_MODEL/_BACKEND belong here for the identical reason:
+    RUNBOOK Sec 6 documents a Telugu beat whose stale transcription (from
+    before the language hint was fixed) survived a rebuild unchanged, and the
+    only fix on record is deleting output/<slug>/reel_beats by hand.
     """
     raw = "|".join(str(x) for x in (
         line, config.REEL_TTS_ENGINE,
         config.REEL_EDGE_TTS_VOICE, config.REEL_EDGE_TTS_RATE,
+        config.REEL_SARVAM_TTS_LANGUAGE, config.REEL_SARVAM_TTS_MODEL,
+        config.REEL_SARVAM_TTS_SPEAKER, config.REEL_SARVAM_TTS_PACE,
         config.REEL_TTS_MODEL, config.REEL_VOICE_SAMPLE,
         config.REEL_EXAGGERATION, config.REEL_CFG_WEIGHT,
-        config.REEL_TEMPERATURE, config.REEL_SPEECH_SPEED))
+        config.REEL_TEMPERATURE, config.REEL_SPEECH_SPEED,
+        config.REEL_ASR_BACKEND, config.REEL_ASR_MODEL, config.REEL_ASR_LANGUAGE))
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 

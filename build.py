@@ -382,3 +382,39 @@ def build(plan: dict, day_dir: Path, log, tag: str = "reel") -> dict:
         log(f"  ! thumbnail failed ({type(exc).__name__}: {exc}) — "
              f"run ./thumbnail.py {day_dir.name} to retry")
     return manifest
+
+
+def prune(max_mb: float | None = None, dry_run: bool = False) -> dict:
+    """Evicts the oldest-downloaded files in state/assets/ until the total is
+    back under the cap.
+
+    Oldest-DOWNLOADED (mtime), not oldest-ACCESSED (atime): atime updates are
+    not guaranteed by every filesystem/mount, while every asset here is
+    written once and never modified again, so mtime is really "when this was
+    fetched" and a reliable stand-in for "how long it's been sitting unused."
+
+    Safe by construction: nothing in ASSET_CACHE is irreplaceable -- stock.py
+    and commons.py both re-download on a cache miss -- so this only trades
+    disk for a future re-fetch, never data for nothing.
+    """
+    cap_bytes = (max_mb if max_mb is not None else config.ASSET_CACHE_MAX_MB) * 1_048_576
+    if not config.ASSET_CACHE.exists():
+        return {"removed": 0, "kept": 0, "freed_mb": 0.0, "total_mb": 0.0}
+
+    files = [f for f in config.ASSET_CACHE.iterdir() if f.is_file()]
+    files.sort(key=lambda f: f.stat().st_mtime)  # oldest-downloaded first
+    total = sum(f.stat().st_size for f in files)
+
+    removed, freed = 0, 0
+    for f in files:
+        if total <= cap_bytes:
+            break
+        size = f.stat().st_size
+        if not dry_run:
+            f.unlink(missing_ok=True)
+        total -= size
+        freed += size
+        removed += 1
+
+    return {"removed": removed, "kept": len(files) - removed,
+            "freed_mb": freed / 1_048_576, "total_mb": total / 1_048_576}

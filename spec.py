@@ -27,9 +27,25 @@ import json
 import re
 from pathlib import Path
 
+import config
+
 
 class SpecError(RuntimeError):
     pass
+
+
+def _check_transliteration(text: str, where: str) -> None:
+    """Fails loudly on a forced dictionary translation. See
+    config.TRANSLITERATION_DENYLIST -- this is the enforcement of RUNBOOK's
+    "Telugu script over-translates specific terms", previously applied by
+    hand (send the spec back to Gemini with the words named explicitly)."""
+    for forced, correct in config.TRANSLITERATION_DENYLIST.items():
+        if forced in text:
+            raise SpecError(
+                f"{where}: {forced!r} is a forced dictionary translation, "
+                f"not what this audience calls it -- use {correct!r} "
+                f"instead (RUNBOOK: \"Telugu script over-translates "
+                f"specific terms\"). Full text: {text!r}")
 
 
 # "10. Santorini, Greece" / "3 - Great Barrier Reef" -> the name alone.
@@ -111,6 +127,7 @@ def load_dict(raw: dict, source: str = "spec") -> dict:
         line = (entry.get("voiceover") or "").strip()
         if not line:
             raise SpecError(f"'{name}' has no voiceover")
+        _check_transliteration(line, f"item '{name}'")
         rank = int(entry.get("rank") or len(items) + 1)
         items.append({
             "rank": rank,
@@ -145,11 +162,17 @@ def load_dict(raw: dict, source: str = "spec") -> dict:
 
     intro = raw.get("intro") or {}
     outro = raw.get("outro") or {}
+    hook = (intro.get("voiceover") or "").strip()
+    cta = (outro.get("voiceover") or "").strip()
+    tease = (raw.get("tease") or "").strip()
+    _check_transliteration(hook, "intro voiceover")
+    _check_transliteration(cta, "outro voiceover")
+    _check_transliteration(tease, "tease")
     return {
         "topic": (raw.get("topic") or intro.get("on_screen_text")
                   or "spec").strip(),
         "title": (intro.get("on_screen_text") or "").strip(),
-        "hook": (intro.get("voiceover") or "").strip(),
+        "hook": hook,
         # The hook is the shot that decides whether anyone watches, and its
         # pexels_query was being dropped here: every spec opened on whatever
         # generic mood footage `visuals.generic` returned. The flat-tire build
@@ -158,9 +181,9 @@ def load_dict(raw: dict, source: str = "spec") -> dict:
         "cta_query": (outro.get("pexels_query") or "").strip(),
         # A hand-written spec has no mid-roll tease and the builder simply
         # omits it rather than inventing one; a generated spec supplies one.
-        "tease": (raw.get("tease") or "").strip(),
+        "tease": tease,
         "items": items,
-        "cta": (outro.get("voiceover") or "").strip(),
+        "cta": cta,
         "caption": (outro.get("on_screen_text") or "").strip(),
         "format": fmt,
         "sources_note": raw.get("sources_note") or source,

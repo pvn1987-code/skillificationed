@@ -138,8 +138,13 @@ def search_photos(query: str, per_page: int = 40) -> list:
 
 
 def find_photo(query: str, distinctive, seen: set | None = None,
-               min_ratio: float | None = None) -> tuple | None:
-    """Best on-query portrait still, gated by the same ratio clips are."""
+               min_ratio: float | None = None, verify=None) -> tuple | None:
+    """Best on-query portrait still, gated by the same ratio clips are.
+
+    `verify(paths) -> list[bool]`, when given, is asked about a shortlist of
+    the top-ranked candidates in ONE call (see stock.find's docstring on why
+    that is batched); the first one it confirms wins, same as find().
+    """
     floor = config.ILLUSTRATIVE_MATCH_RATIO if min_ratio is None else min_ratio
     seen = seen if seen is not None else set()
     ranked = []
@@ -153,24 +158,48 @@ def find_photo(query: str, distinctive, seen: set | None = None,
     if not ranked:
         return None
     ranked.sort(key=lambda pair: -pair[0])
-    ratio, photo = ranked[0]
-    src = photo.get("src") or {}
-    url = src.get("portrait") or src.get("large2x") or src.get("original")
-    if not url:
+
+    shortlist = ranked if verify is None else ranked[:config.VISION_BATCH_SIZE]
+    downloaded = []
+    for ratio, photo in shortlist:
+        src = photo.get("src") or {}
+        url = src.get("portrait") or src.get("large2x") or src.get("original")
+        if not url:
+            continue
+        dest = config.ASSET_CACHE / f"pexels-photo-{photo['id']}.jpg"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if not (dest.exists() and dest.stat().st_size > 0):
+            try:
+                _download(url, dest)
+            except requests.RequestException:
+                continue
+        downloaded.append((ratio, photo, dest))
+
+    if not downloaded:
         return None
-    dest = config.ASSET_CACHE / f"pexels-photo-{photo['id']}.jpg"
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    if not (dest.exists() and dest.stat().st_size > 0):
-        _download(url, dest)
-    seen.add(photo["id"])
-    return dest, {
-        "asset_id": f"pexels-photo-{photo['id']}",
-        "page": photo.get("url", ""),
-        "author": photo.get("photographer", ""),
-        "author_url": photo.get("photographer_url", ""),
-        "source": "pexels-photo",
-        "match_ratio": round(ratio, 2),
-    }
+
+    def _photo_credit(photo: dict, ratio: float, verified: bool = True) -> dict:
+        return {
+            "asset_id": f"pexels-photo-{photo['id']}",
+            "page": photo.get("url", ""),
+            "author": photo.get("photographer", ""),
+            "author_url": photo.get("photographer_url", ""),
+            "source": "pexels-photo",
+            "match_ratio": round(ratio, 2),
+            "vision_verified": verified,
+        }
+
+    verdicts = ([True] * len(downloaded) if verify is None
+               else verify([dest for *_, dest in downloaded]))
+    for (ratio, photo, dest), passed in zip(downloaded, verdicts):
+        seen.add(photo["id"])
+        if not passed:
+            continue
+        return dest, _photo_credit(photo, ratio)
+    # Same reasoning as find()'s fallback: unverified beats unrelated for a
+    # subject nothing could confirm.
+    ratio, photo, dest = downloaded[0]
+    return dest, _photo_credit(photo, ratio, verified=False)
 
 
 def fetch_by_id(video_id: int, seen: set | None = None) -> tuple | None:
@@ -255,8 +284,27 @@ def probe(terms: list, distinctive, seen: set | None = None,
     return best, passing
 
 
+def _credit(video: dict, chosen: dict, term: str, ratio: float,
+            verified: bool = True) -> dict:
+    return {
+        "source": "pexels",
+        "query": term,
+        "match_ratio": round(ratio, 2),
+        "asset_id": video["id"],
+        "page": video.get("url", ""),
+        "author": (video.get("user") or {}).get("name", ""),
+        "author_url": (video.get("user") or {}).get("url", ""),
+        "licence": "Pexels Licence",
+        "attribution_required": False,
+        "resolution": f"{chosen['width']}x{chosen['height']}",
+        "duration": video.get("duration"),
+        "kind": "video",
+        "vision_verified": verified,
+    }
+
+
 def find(terms: list, distinctive, seen: set | None = None,
-         min_ratio: float | None = None, screen=None) -> tuple | None:
+         min_ratio: float | None = None, screen=None, verify=None) -> tuple | None:
     """Best VERIFIED clip across several phrasings of one subject.
 
     `distinctive` is either one set of tokens or a LIST of alternative token
@@ -267,6 +315,13 @@ def find(terms: list, distinctive, seen: set | None = None,
     An empty set means the caller wants mood footage and has nothing to verify
     against, so the gate is skipped deliberately. That is why the ladder never
     passes an item's name in with an empty set.
+
+    `verify(paths) -> list[bool]`, when given, batches a shortlist of the
+    top-ranked candidates (config.VISION_BATCH_SIZE) into ONE call rather than
+    checking them one at a time -- the slug gate only proves the page
+    description carries the right words, never that the frame shows the
+    subject, and re-verifying every candidate individually would burn the
+    free tier's daily request quota on a single reel.
     """
     if isinstance(distinctive, (set, frozenset)):
         distinctive = [distinctive]
@@ -305,6 +360,31 @@ def find(terms: list, distinctive, seen: set | None = None,
                                  -min(row[1].get("duration") or 0, _GOOD_DURATION),
                                  -(row[1].get("duration") or 0)))
 
+    if verify is None:
+        for ratio, video, term in scored:
+            chosen = _pick_file(video)
+            dest = cache / f"pexels-{video['id']}-{chosen['id']}.mp4"
+            if not (dest.exists() and dest.stat().st_size > 0):
+                try:
+                    _download(chosen["link"], dest)
+                except requests.RequestException:
+                    continue
+            # Face screening needs the bytes, so it can only run
+            # post-download. A rejected clip stays cached: re-fetching it to
+            # reach the same verdict would be the only thing worse.
+            if screen is not None and screen(dest):
+                seen.add(video["id"])
+                continue
+            seen.add(video["id"])
+            return dest, _credit(video, chosen, term, ratio)
+        return None
+
+    # Batched path: gather a shortlist that survives the (free, local) face
+    # screen first, THEN ask the (metered) vision check about all of them at
+    # once. Downloads a few more candidates than the lazy path might have
+    # needed, in exchange for one Gemini call instead of up to
+    # VISION_BATCH_SIZE of them.
+    shortlist = []
     for ratio, video, term in scored:
         chosen = _pick_file(video)
         dest = cache / f"pexels-{video['id']}-{chosen['id']}.mp4"
@@ -313,26 +393,26 @@ def find(terms: list, distinctive, seen: set | None = None,
                 _download(chosen["link"], dest)
             except requests.RequestException:
                 continue
-        # Face screening needs the bytes, so it can only run post-download. A
-        # rejected clip stays cached: re-fetching it to reach the same verdict
-        # would be the only thing worse.
         if screen is not None and screen(dest):
             seen.add(video["id"])
             continue
+        shortlist.append((ratio, video, term, chosen, dest))
+        if len(shortlist) >= config.VISION_BATCH_SIZE:
+            break
+
+    if not shortlist:
+        return None
+    verdicts = verify([dest for *_, dest in shortlist])
+    for (ratio, video, term, chosen, dest), passed in zip(shortlist, verdicts):
         seen.add(video["id"])
-        credit = {
-            "source": "pexels",
-            "query": term,
-            "match_ratio": round(ratio, 2),
-            "asset_id": video["id"],
-            "page": video.get("url", ""),
-            "author": (video.get("user") or {}).get("name", ""),
-            "author_url": (video.get("user") or {}).get("url", ""),
-            "licence": "Pexels Licence",
-            "attribution_required": False,
-            "resolution": f"{chosen['width']}x{chosen['height']}",
-            "duration": video.get("duration"),
-            "kind": "video",
-        }
-        return dest, credit
-    return None
+        if not passed:
+            continue
+        return dest, _credit(video, chosen, term, ratio)
+    # Nothing the vision check could confirm. Some subjects (fenugreek seeds,
+    # millet grain) are genuinely hard to tell apart from any other seed or
+    # grain in a photo -- a model saying "no" to all of them is honest, but
+    # dropping straight to generic mood footage throws away the best slug
+    # match for a subject that just cannot be verified, which is a worse
+    # trade. Use it anyway, marked as unverified rather than silently trusted.
+    ratio, video, term, chosen, dest = shortlist[0]
+    return dest, _credit(video, chosen, term, ratio, verified=False)

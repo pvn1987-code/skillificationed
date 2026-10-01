@@ -1,6 +1,6 @@
 """Speech and word timestamps.
 
-Two engines behind config.TTS_ENGINE:
+Three engines behind config.TTS_ENGINE:
 
   "edge" (default) -- Microsoft's free cloud neural voices via `edge-tts`.
       Mature and consistently clean; the whole reason to switch to it is that
@@ -8,6 +8,12 @@ Two engines behind config.TTS_ENGINE:
       advantage (zero-shot cloning) was never in use, and its costs (rough
       takes, the long-input degradation this module used to document) were
       being paid for nothing. Runs in the light venv -- no torch, no mlx.
+  "sarvam" -- Sarvam AI's Bulbul model, a paid (small free credit, then
+      metered) API built specifically for Indian languages rather than a
+      generic multilingual model with Telugu bolted on. Worth the cost for
+      Telugu specifically: Google Cloud TTS's te-IN voices are Standard tier
+      only, likely a downgrade from Edge's neural te-IN voices, so it isn't
+      offered here as a third option.
   "chatterbox" -- the local Apple-Silicon-native engine, still available for
       when a cloned voice is actually wanted. A subprocess call into
       .venv-reel; this module never imports mlx directly, so the carousel's
@@ -17,12 +23,14 @@ Word timestamps always come from mlx_whisper in .venv-reel regardless of
 engine -- transcribing a finished wav is the same job either way.
 """
 import asyncio
+import base64
 import json
 import re
 import subprocess
 from pathlib import Path
 
 import edge_tts
+import requests
 
 import config
 
@@ -101,6 +109,8 @@ def generate_speech(script_text: str, out_path: Path) -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     if config.REEL_TTS_ENGINE == "edge":
         return _generate_speech_edge(script_text, out_path)
+    if config.REEL_TTS_ENGINE == "sarvam":
+        return _generate_speech_sarvam(script_text, out_path)
     return _generate_speech_chatterbox(script_text, out_path)
 
 
@@ -124,6 +134,83 @@ def _generate_speech_edge(script_text: str, out_path: Path) -> Path:
     mp3_path.unlink(missing_ok=True)
     if result.returncode != 0:
         raise VoiceError(f"mp3->wav failed: {result.stderr.strip()[-300:]}")
+    return _retime(out_path)
+
+
+_SARVAM_TTS_URL = "https://api.sarvam.ai/text-to-speech"
+# The API caps a single request around 2500 characters; split at sentence
+# boundaries (Telugu దండం included) well under that so no sentence is cut
+# mid-word.
+_SARVAM_MAX_CHARS = 2000
+
+
+def _sarvam_chunks(text: str) -> list:
+    sentences = re.split(r"(?<=[.!?।॥])\s+", text.strip())
+    chunks, current = [], ""
+    for sentence in sentences:
+        if current and len(current) + 1 + len(sentence) > _SARVAM_MAX_CHARS:
+            chunks.append(current)
+            current = sentence
+        else:
+            current = f"{current} {sentence}".strip()
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def _generate_speech_sarvam(script_text: str, out_path: Path) -> Path:
+    """Sarvam AI (Bulbul): chunks long scripts at sentence boundaries to stay
+    under the API's per-request character cap, then concatenates the chunk
+    wavs with ffmpeg before handing off to _retime."""
+    if not config.REEL_SARVAM_API_KEY:
+        raise DependencyError("SARVAM_API_KEY is not set in .env")
+    chunk_paths = []
+    try:
+        for index, chunk in enumerate(_sarvam_chunks(script_text)):
+            payload = {
+                "text": chunk,
+                "language_code": config.REEL_SARVAM_TTS_LANGUAGE,
+                "model": config.REEL_SARVAM_TTS_MODEL,
+                "pace": config.REEL_SARVAM_TTS_PACE,
+                "speech_sample_rate": 24000,
+                "output_audio_codec": "wav",
+            }
+            if config.REEL_SARVAM_TTS_SPEAKER:
+                payload["speaker"] = config.REEL_SARVAM_TTS_SPEAKER
+            try:
+                response = requests.post(
+                    _SARVAM_TTS_URL,
+                    headers={"api-subscription-key": config.REEL_SARVAM_API_KEY},
+                    json=payload, timeout=120)
+                response.raise_for_status()
+            except requests.RequestException as exc:
+                raise VoiceError(f"sarvam TTS request failed: {exc}") from exc
+            audios = response.json().get("audios") or []
+            if not audios:
+                raise VoiceError(f"sarvam TTS returned no audio for chunk {index}")
+            chunk_path = out_path.with_suffix(f".sarvam{index}.wav")
+            chunk_path.write_bytes(base64.b64decode(audios[0]))
+            chunk_paths.append(chunk_path)
+
+        if len(chunk_paths) == 1:
+            chunk_paths[0].replace(out_path)
+        else:
+            concat_inputs = []
+            for chunk_path in chunk_paths:
+                concat_inputs += ["-i", str(chunk_path)]
+            filter_inputs = "".join(f"[{i}:a]" for i in range(len(chunk_paths)))
+            result = subprocess.run(
+                ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", *concat_inputs,
+                 "-filter_complex",
+                 f"{filter_inputs}concat=n={len(chunk_paths)}:v=0:a=1",
+                 "-c:a", "pcm_s16le", str(out_path)],
+                capture_output=True, text=True, timeout=120)
+            if result.returncode != 0:
+                raise VoiceError(
+                    f"sarvam chunk concat failed: {result.stderr.strip()[-300:]}")
+    finally:
+        for chunk_path in chunk_paths:
+            chunk_path.unlink(missing_ok=True)
     return _retime(out_path)
 
 

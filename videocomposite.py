@@ -719,6 +719,32 @@ def build_segments_multi(beat_spans: list, beat_clips: list,
     return segments
 
 
+def _music_bed() -> Path | None:
+    """The configured music bed, loudness-normalised once and cached.
+
+    Re-running loudnorm on every build would mean every build pays an ffmpeg
+    pass over a file that never changes between them. Cached by source
+    filename; touching the source (a new download) invalidates it via mtime.
+    """
+    if not config.MUSIC_BED:
+        return None
+    source = Path(config.MUSIC_BED).expanduser()
+    if not source.exists():
+        raise CompositeError(f"MUSIC_BED points at a missing file: {source}")
+    config.ASSET_CACHE.mkdir(parents=True, exist_ok=True)
+    cached = config.ASSET_CACHE / f"music-bed-{source.stem}.wav"
+    if cached.exists() and cached.stat().st_mtime >= source.stat().st_mtime:
+        return cached
+    result = subprocess.run(
+        ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(source),
+         "-af", "loudnorm=I=-23:TP=-2:LRA=7", "-ar", "44100", "-ac", "2",
+         str(cached)], capture_output=True, text=True, timeout=300)
+    if result.returncode != 0:
+        raise CompositeError(
+            f"music bed normalise failed: {result.stderr.strip()[-300:]}")
+    return cached
+
+
 def assemble(clips: list, audio: Path, segments: list, frames_dir: Path,
              out_path: Path, duration: float) -> Path:
     if not clips:
@@ -732,6 +758,15 @@ def assemble(clips: list, audio: Path, segments: list, frames_dir: Path,
                 "-i", str(frames_dir / "f_%05d.png")]
     command += ["-i", str(audio)]
     caption_index, audio_index = len(clips), len(clips) + 1
+
+    # Looped rather than trimmed to length here -- the final `-t total` on the
+    # OUTPUT cuts everything, bed included, so a bed shorter than the reel
+    # just loops instead of leaving the tail silent.
+    music = _music_bed()
+    music_index = None
+    if music is not None:
+        music_index = audio_index + 1
+        command += ["-stream_loop", "-1", "-i", str(music)]
 
     chains, labels = [], []
     for position, (clip, start, length) in enumerate(segments):
@@ -747,9 +782,20 @@ def assemble(clips: list, audio: Path, segments: list, frames_dir: Path,
                   f"eof_action=pass[captioned]")
     chains.append("[captioned]format=yuv420p[final]")
 
+    if music_index is not None:
+        # `normalize=0` on amix: the bed is already ducked by `volume=`, and
+        # amix's default normalising would otherwise also quietly halve the
+        # narration -- the one thing this must never touch.
+        chains.append(f"[{music_index}:a]volume={config.MUSIC_BED_DB}dB[bed]")
+        chains.append(f"[{audio_index}:a][bed]amix=inputs=2:duration=first:"
+                      f"dropout_transition=0:normalize=0[mixaudio]")
+        audio_map = "[mixaudio]"
+    else:
+        audio_map = f"{audio_index}:a"
+
     command += [
         "-filter_complex", ";".join(chains),
-        "-map", "[final]", "-map", f"{audio_index}:a",
+        "-map", "[final]", "-map", audio_map,
         "-t", f"{total:.2f}",
         # Instagram's documented reel envelope: H.264 high, AAC stereo.
         "-c:v", "libx264", "-preset", "medium", "-crf", "20",

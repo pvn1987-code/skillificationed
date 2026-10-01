@@ -7,6 +7,7 @@
   ./reelforge.py build "..."                 render the plan (edit it first)
   ./reelforge.py make "..."                  plan and build in one go
   ./reelforge.py probe                       environment check, no network
+  ./reelforge.py prune                       evict oldest cached assets
 
 Plans are cached, so `build` after editing plan.json spends no Gemini quota.
 
@@ -230,6 +231,16 @@ def cmd_probe(_args) -> int:
     return 0
 
 
+def cmd_prune(args) -> int:
+    result = builder.prune(max_mb=args.max_mb, dry_run=args.dry_run)
+    cap = args.max_mb if args.max_mb is not None else config.ASSET_CACHE_MAX_MB
+    verb = "would remove" if args.dry_run else "removed"
+    _log(f"  {verb} {result['removed']} file(s), freed {result['freed_mb']:.0f}MB")
+    _log(f"  kept {result['kept']} file(s), {result['total_mb']:.0f}MB total "
+         f"(cap {cap:.0f}MB)")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -268,6 +279,13 @@ def main() -> int:
 
     probe = subs.add_parser("probe", help="environment check")
     probe.set_defaults(func=cmd_probe)
+
+    prune = subs.add_parser("prune", help="evict oldest cached assets down to the size cap")
+    prune.add_argument("--max-mb", type=float, default=None,
+                       help=f"override the cap (default {config.ASSET_CACHE_MAX_MB}MB)")
+    prune.add_argument("--dry-run", action="store_true",
+                       help="report what would be removed, delete nothing")
+    prune.set_defaults(func=cmd_prune)
 
     args = parser.parse_args()
     try:
